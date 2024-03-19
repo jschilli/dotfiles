@@ -1,7 +1,7 @@
 
 # set -x
 
-export ZSH=$HOME/.dotfiles.new/zsh.d
+export ZSH=$HOME/.dotfiles/zsh.d
 
 ##############
 # BASIC SETUP
@@ -118,7 +118,7 @@ alias ez='vim ~/.zshrc'
 alias sz='source ~/.zshrc'
 
 # git
-alias gst='git status'
+alias gs='git status -sb'
 alias gaa='git add -A'
 alias gc='git commit'
 alias gcm='git checkout main'
