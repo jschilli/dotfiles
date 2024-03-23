@@ -1,8 +1,9 @@
-#!/bin/zsh
+#!/usr/bin/env sh
 
-# make all
+set -e
 
 DOTFILE_PATH=$(pwd)
+export DOTFILE_PATH;
 
 # install git stuff
 ln -s $DOTFILE_PATH/gitconfig ~/.gitconfig
