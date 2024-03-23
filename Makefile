@@ -6,7 +6,9 @@ $(HOME)/.%: %
 
 git: $(HOME)/.gitconfig $(HOME)/.githelpers $(HOME)/.gitignore
 psql: $(HOME)/.psqlrc
-zsh: $(HOME)/.zshrc $(HOME)/.zsh.d
+zsh:
+	sh -c "$(curl -fsSL https://starship.rs/install.sh)" -- -y
+	$(HOME)/.zshrc $(HOME)/.zsh.d
 
 bin:
 	ln -sf $(DOTFILE_PATH)/bin/ $(HOME)
