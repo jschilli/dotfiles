@@ -10,6 +10,13 @@ ln -s $DOTFILE_PATH/gitignore ~/.gitignore
 ln -s $DOTFILE_PATH/githelpers ~/.githelpers
 
 # install zsh stuff
+if `which starship`; then
+  # all good
+  echo "starship already installed"
+  else
+  	sh -c "$(curl -fsSL https://starship.rs/install.sh)" -- -y
+
+fi
 # does a zshrc already exist?
 if [ -f ~/.zshrc ]; then
   echo "zshrc already exists"
