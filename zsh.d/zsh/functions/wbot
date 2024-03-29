@@ -1,0 +1,4 @@
+function wbot() {
+        echo "copying $1 to remote system "
+ scp $1 jschi@wasmbot.local:$WBOT_TARGET_PATH`basename $1`      
+}

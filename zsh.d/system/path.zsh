@@ -10,3 +10,6 @@ NODE_PATH='/usr/local/lib/jsctags:${NODE_PATH}'
 export IDF_PATH=$HOME/esp/esp-idf
 
 export PATH=$PATH:"/Applications/Visual Studio Code.app/Contents/Resources/app/bin"
+
+# used to direct scps via `wbot()`
+export WBOT_TARGET_PATH="wasm/"
