@@ -269,7 +269,7 @@ local promptnormal="φ %{$reset_color%}"
 local promptjobs="%{$fg_bold[red]%}φ %{$reset_color%}"
 
 # Show how many nested `nix shell`s we are in
-# local nix_prompt=""
+# local `nix`_prompt=""
 # # Set ORIG_SHLVL only if it wasn't previously set and if SHLVL > 1 and
 # # GHOSTTY_RESOURCES_DIR is not empty
 # if [[ -z $ORIG_SHLVL ]]; then

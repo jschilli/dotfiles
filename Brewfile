@@ -1,5 +1,8 @@
 # vim: set ft=ruby
 
+brew 'bat'
+brew 'asciinema'
+brew 'agg'
 brew 'git'
 brew 'zsh'
 brew 'bash'
