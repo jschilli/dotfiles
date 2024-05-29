@@ -3,6 +3,8 @@
 brew 'bat'
 brew 'asciinema'
 brew 'agg'
+brew 'eza'
+brew 'btop'
 brew 'git'
 brew 'zsh'
 brew 'bash'
