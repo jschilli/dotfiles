@@ -1,9 +1,15 @@
 [user]
-	email = jeff.schilling@gmail.com
+	email = jeff@warmdev.com
 	name = Jeff Schilling
 [core]
 	excludesfile = /Users/jschi/.gitignore_global
     
+[credential]
+	helper = osxkeychain
+
+[net]
+git-fetch-with-cli = true
+
 [difftool "sourcetree"]
 	cmd = opendiff \"$LOCAL\" \"$REMOTE\"
 	path = 
@@ -65,3 +71,8 @@
 	rebase = true
 [protocol "file"]
 	allow = always
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true

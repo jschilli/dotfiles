@@ -4,7 +4,7 @@ export MANPATH="/usr/local/man:$MANPATH"
 
 launchctl setenv PATH $PATH
 
-NODE_PATH='/usr/local/lib/jsctags:${NODE_PATH}'
+NODE_PATH="/usr/local/lib/jsctags:$NODE_PATH"
 
 #export PATH=$(npm config --global get prefix)/bin:$PATH:
 export IDF_PATH=$HOME/esp/esp-idf
