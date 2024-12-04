@@ -101,11 +101,14 @@ case $OSTYPE in
 esac
 
 if type lsd &> /dev/null; then
-  alias ls=lsd
+  alias ls=eza --icons --git
 fi
 alias lls='ls -lh --sort=size --reverse'
 alias llt='ls -lrt'
 alias bear='clear && echo "Clear as a bear!"'
+alias cat='bat'
+alias find='fd'
+alias grep='rg'
 
 alias history='history 1'
 alias hs='history | grep '
@@ -390,3 +393,15 @@ eval "$(starship init zsh)"
 export WASMTIME_HOME="$HOME/.wasmtime"
 
 export PATH="$WASMTIME_HOME/bin:$PATH"
+
+# pnpm
+export PNPM_HOME="/Users/jschilli/Library/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
+# pnpm end
+
+plugins=( git z )export PATH="$PATH:/Users/jschilli/Library/Warm/bin"
+
+export BAT_THEME="Coldark-Dark"
