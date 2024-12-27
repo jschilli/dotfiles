@@ -5,3 +5,5 @@ alias pgserver='function pgsql_server() { case $1 in "start") echo "Trying to st
 
 alias lctouch-pb="rsync --progress --partial -avz ~/Google\ Drive/LinuxCNC/configs/github/linux-cnc-configs/linux-cnc-configs/g0704-probe-basic jscnc:./sync"
 alias lctouch-v2="rsync --progress --partial -avz ~/Google\ Drive/LinuxCNC/configs/github/linux-cnc-configs/linux-cnc-configs/g0704-touch-v2 jscnc:./sync"
+
+alias kvitest="ps -ef | grep vitest | awk '{print \$2}' | xargs kill -9"

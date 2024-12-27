@@ -405,3 +405,4 @@ esac
 plugins=( git z )export PATH="$PATH:/Users/jschilli/Library/Warm/bin"
 
 export BAT_THEME="Coldark-Dark"
+. "$HOME/.local/bin/env"

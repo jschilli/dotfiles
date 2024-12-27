@@ -72,8 +72,7 @@ cask 'monodraw'
 cask 'imageoptim'
 cask 'handbrake'
 # terminal emulators
-cask 'alacritty'
-cask 'iterm2'
+brew 'ghostty'
 
 
 tap 'homebrew/cask-fonts'
