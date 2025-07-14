@@ -21,8 +21,11 @@ if [ -e ${private} ]; then
 fi
 
 
-export NVM_DIR="$HOME/.nvm"
-[ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh" # This loads nvm
+# Only load nvm for interactive shells (nvm is slow to initialize)
+if [[ -o interactive ]]; then
+  export NVM_DIR="$HOME/.nvm"
+  [ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh" # This loads nvm
+fi
 
 ##########
 # HISTORY
@@ -238,20 +241,26 @@ autoload -U $ZSH/zsh/functions/*(:t)
 # PROMPT
 #########
 
-setopt prompt_subst
+# Only set up git prompt for interactive shells
+if [[ -o interactive ]]; then
+  setopt prompt_subst
 
-git_prompt_info() {
-  local dirstatus=" OK"
-  local dirty="%{$fg_bold[red]%} X%{$reset_color%}"
+  git_prompt_info() {
+    local dirstatus=" OK"
+    local dirty="%{$fg_bold[red]%} X%{$reset_color%}"
 
-  if [[ ! -z $(git status --porcelain 2> /dev/null | tail -n1) ]]; then
-    dirstatus=$dirty
-  fi
+    if [[ ! -z $(git status --porcelain 2> /dev/null | tail -n1) ]]; then
+      dirstatus=$dirty
+    fi
 
-  ref=$(git symbolic-ref HEAD 2> /dev/null) || \
-  ref=$(git rev-parse --short HEAD 2> /dev/null) || return
-  echo " %{$fg_bold[green]%}${ref#refs/heads/}$dirstatus%{$reset_color%}"
-}
+    ref=$(git symbolic-ref HEAD 2> /dev/null) || \
+    ref=$(git rev-parse --short HEAD 2> /dev/null) || return
+    echo " %{$fg_bold[green]%}${ref#refs/heads/}$dirstatus%{$reset_color%}"
+  }
+else
+  # Simple no-op function for non-interactive shells
+  git_prompt_info() { return; }
+fi
 
 # local dir_info_color="$fg_bold[black]"
 
@@ -267,27 +276,33 @@ if [ -r ${dir_info_color_file} ]; then
   source ${dir_info_color_file}
 fi
 
-local dir_info="%{$dir_info_color%}%(5~|%-1~/.../%2~|%4~)%{$reset_color%}"
-local promptnormal="φ %{$reset_color%}"
-local promptjobs="%{$fg_bold[red]%}φ %{$reset_color%}"
+# Only set up complex prompt for interactive shells
+if [[ -o interactive ]]; then
+  local dir_info="%{$dir_info_color%}%(5~|%-1~/.../%2~|%4~)%{$reset_color%}"
+  local promptnormal="φ %{$reset_color%}"
+  local promptjobs="%{$fg_bold[red]%}φ %{$reset_color%}"
 
-# Show how many nested `nix shell`s we are in
-# local `nix`_prompt=""
-# # Set ORIG_SHLVL only if it wasn't previously set and if SHLVL > 1 and
-# # GHOSTTY_RESOURCES_DIR is not empty
-# if [[ -z $ORIG_SHLVL ]]; then
-#   if [[ -z $GHOSTTY_RESOURCES_DIR ]]; then
-#     export ORIG_SHLVL=$SHLVL
-#   elif  [[ $SHLVL -gt 1 ]]; then
-#     export ORIG_SHLVL=$SHLVL
-#   fi
-# fi;
-# # If ORIG_SHLVL is set and SHLVL is now greater: display nesting level
-# if [[ ! -z $ORIG_SHLVL && $SHLVL -gt $ORIG_SHLVL ]]; then
-#   nix_prompt=("(%F{yellow}$(($SHLVL - $ORIG_SHLVL))%f) ")
-# fi;
+  # Show how many nested `nix shell`s we are in
+  # local `nix`_prompt=""
+  # # Set ORIG_SHLVL only if it wasn't previously set and if SHLVL > 1 and
+  # # GHOSTTY_RESOURCES_DIR is not empty
+  # if [[ -z $ORIG_SHLVL ]]; then
+  #   if [[ -z $GHOSTTY_RESOURCES_DIR ]]; then
+  #     export ORIG_SHLVL=$SHLVL
+  #   elif  [[ $SHLVL -gt 1 ]]; then
+  #     export ORIG_SHLVL=$SHLVL
+  #   fi
+  # fi;
+  # # If ORIG_SHLVL is set and SHLVL is now greater: display nesting level
+  # if [[ ! -z $ORIG_SHLVL && $SHLVL -gt $ORIG_SHLVL ]]; then
+  #   nix_prompt=("(%F{yellow}$(($SHLVL - $ORIG_SHLVL))%f) ")
+  # fi;
 
-PROMPT='${dir_info}$(git_prompt_info) ${nix_prompt}%(1j.$promptjobs.$promptnormal)'
+  PROMPT='${dir_info}$(git_prompt_info) ${nix_prompt}%(1j.$promptjobs.$promptnormal)'
+else
+  # Simple prompt for non-interactive shells
+  PROMPT='$ '
+fi
 
 simple_prompt() {
   local prompt_color="%B"
@@ -343,9 +358,29 @@ export PATH="$HOME/.cargo/bin:$PATH"
 export PATH="/usr/local/bin:$PATH"
 export PATH="/opt/homebrew/opt/gnu-sed/libexec/gnubin:$PATH"
 
-# mise
-if type mise &> /dev/null; then
-  eval "$(mise activate zsh)"
+# Only initialize interactive tools for interactive shells
+if [[ -o interactive ]]; then
+  # mise
+  if type mise &> /dev/null; then
+    eval "$(mise activate zsh)"
+  fi
+
+  # direnv
+  if type direnv &> /dev/null; then
+    eval "$(direnv hook zsh)"
+  fi
+
+  # fzf
+  if type fzf &> /dev/null && type rg &> /dev/null; then
+    export FZF_DEFAULT_COMMAND='rg --files --hidden --follow --glob "!.git/*" --glob "!vendor/*"'
+    export FZF_CTRL_T_COMMAND='rg --files --hidden --follow --glob "!.git/*" --glob "!vendor/*"'
+    export FZF_ALT_C_COMMAND="$FZF_DEFAULT_COMMAND"
+  fi
+
+  # Try out atuin
+  if type atuin &> /dev/null; then
+    eval "$(atuin init zsh)"
+  fi
 fi
 
 # node.js
@@ -356,30 +391,16 @@ export GOPATH="$HOME/code/go"
 export GOBIN="$GOPATH/bin"
 export PATH="$GOBIN:$PATH"
 
-# direnv
-if type direnv &> /dev/null; then
-  eval "$(direnv hook zsh)"
-fi
+# Only load z (jump around) for interactive shells
+if [[ -o interactive ]]; then
+  # `z`
+  if [ -e /usr/local/etc/profile.d/z.sh ]; then
+    source /usr/local/etc/profile.d/z.sh
+  fi
 
-# fzf
-if type fzf &> /dev/null && type rg &> /dev/null; then
-  export FZF_DEFAULT_COMMAND='rg --files --hidden --follow --glob "!.git/*" --glob "!vendor/*"'
-  export FZF_CTRL_T_COMMAND='rg --files --hidden --follow --glob "!.git/*" --glob "!vendor/*"'
-  export FZF_ALT_C_COMMAND="$FZF_DEFAULT_COMMAND"
-fi
-
-# Try out atuin
-if type atuin &> /dev/null; then
-  eval "$(atuin init zsh)"
-fi
-
-# `z`
-if [ -e /usr/local/etc/profile.d/z.sh ]; then
-  source /usr/local/etc/profile.d/z.sh
-fi
-
-if [ -e /opt/homebrew/etc/profile.d/z.sh ]; then
-  source /opt/homebrew/etc/profile.d/z.sh
+  if [ -e /opt/homebrew/etc/profile.d/z.sh ]; then
+    source /opt/homebrew/etc/profile.d/z.sh
+  fi
 fi
 
 export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
@@ -389,7 +410,11 @@ export PATH="$HOME/bin:$PATH"
 
 export STARSHIP_CONFIG=~/.dotfiles/config/nerd-font-symbols.toml
 # This loads nvm bash_completion[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-eval "$(starship init zsh)"
+
+# Only initialize starship for interactive shells
+if [[ -o interactive ]]; then
+  eval "$(starship init zsh)"
+fi
 export WASMTIME_HOME="$HOME/.wasmtime"
 
 export PATH="$WASMTIME_HOME/bin:$PATH"
@@ -406,3 +431,5 @@ plugins=( git z )export PATH="$PATH:/Users/jschilli/Library/Warm/bin"
 
 export BAT_THEME="Coldark-Dark"
 . "$HOME/.local/bin/env"
+
+. "$HOME/.grit/bin/env"

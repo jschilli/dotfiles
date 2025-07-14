@@ -7,3 +7,7 @@ alias lctouch-pb="rsync --progress --partial -avz ~/Google\ Drive/LinuxCNC/confi
 alias lctouch-v2="rsync --progress --partial -avz ~/Google\ Drive/LinuxCNC/configs/github/linux-cnc-configs/linux-cnc-configs/g0704-touch-v2 jscnc:./sync"
 
 alias kvitest="ps -ef | grep vitest | awk '{print \$2}' | xargs kill -9"
+
+alias dev="cd ~/dev && code ."
+alias dotfiles="cd ~/.dotfiles && code ."
+alias warmhub="cd ~/dev/warmhub && cursor ."

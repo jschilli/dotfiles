@@ -1,0 +1,13 @@
+alias pi='pnpm install'
+alias plf='pnpm lint --fix'
+alias pl='pnpm lint'
+alias pb='pnpm build'
+alias pbw='pnpm build:watch'
+alias pdev='pnpm dev'
+alias pc='pnpm clean'
+alias pt='pnpm test'
+alias ptd='pnpm test -- --test-timeout=0'
+alias ptdt='pnpm test -- --test-timeout=0 -t'
+
+alias cbt='pnpm clean;pnpm install;pnpm build;pnpm test'
+alias cb='pnpm clean;pnpm install && pnpm build'

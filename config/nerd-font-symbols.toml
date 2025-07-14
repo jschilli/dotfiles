@@ -51,3 +51,12 @@ symbol = " "
 
 [rust]
 symbol = " "
+
+[custom.pnpm]
+
+command = "pnpm -v"
+format = '[$symbol(v$output )]($style)'
+description = "The currently installed version of PNPM"
+style = "bold yellow"
+detect_files = ['pnpm-lock.yaml']
+symbol = '🚨 pnpm '
