@@ -83,6 +83,9 @@ cask 'font-roboto'
 cask 'font-roboto-mono'
 cask 'font-ibm-plex'
 
+tap 'ankitpokhrel/jira-cli'
+brew 'jira-cli'
+
 # mas 'Xcode', id: 497799835
 # mas 'Pixelmator Pro', id: 1289583905
 # mas 'Microsoft Word', id: 462054704

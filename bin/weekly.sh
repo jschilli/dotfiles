@@ -17,6 +17,6 @@ docker system prune -f --volumes
 
 # Clean up downloads folder
 echo "🗑️ Cleaning Downloads..."
-find ~/Downloads -mtime +30 -exec mv {} ~/.Trash \;
+/usr/bin/find ~/Downloads -mtime +30 -exec mv {} ~/.Trash \;
 
 echo "✨ Maintenance complete!"

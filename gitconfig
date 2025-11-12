@@ -40,6 +40,10 @@ git-fetch-with-cli = true
 
   # Taken from here: https://aaronbonner.io/post/80766268890/git-alias-to-simplify-setting-upstream-branch
   sup = "!git branch --set-upstream-to=origin/`git symbolic-ref --short HEAD`"
+	wtadd = !/Users/jschilli/.local/bin/wtadd.sh
+	wtremove = !/Users/jschilli/.local/bin/wtremove.sh
+	wtclone = !/Users/jschilli/.local/bin/wtclone.sh
+	wtlist = !/Users/jschilli/.local/bin/wtlist.sh
 [core]
   excludesfile = ~/.gitignore
 

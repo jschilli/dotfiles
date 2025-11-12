@@ -1,3 +1,5 @@
+# Add deno completions to search path
+if [[ ":$FPATH:" != *":/Users/jschilli/.zsh/completions:"* ]]; then export FPATH="/Users/jschilli/.zsh/completions:$FPATH"; fi
 
 # set -x
 
@@ -110,8 +112,8 @@ alias lls='ls -lh --sort=size --reverse'
 alias llt='ls -lrt'
 alias bear='clear && echo "Clear as a bear!"'
 alias cat='bat'
-alias find='fd'
-alias grep='rg'
+# alias find='fd'
+# alias grep='rg'
 
 alias history='history 1'
 alias hs='history | grep '
@@ -433,3 +435,16 @@ export BAT_THEME="Coldark-Dark"
 . "$HOME/.local/bin/env"
 
 . "$HOME/.grit/bin/env"
+
+# bun completions
+[ -s "/Users/jschilli/.bun/_bun" ] && source "/Users/jschilli/.bun/_bun"
+
+# bun
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+
+. "/Users/jschilli/.deno/env"
+
+[[ "$TERM_PROGRAM" == "kiro" ]] && . "$(kiro --locate-shell-integration-path zsh)"
+
+. "$HOME/.atuin/bin/env"
