@@ -13,3 +13,10 @@ alias dotfiles="cd ~/.dotfiles && code ."
 alias warmhub="cd ~/dev/warmhub && cursor ."
 
 alias hl="cd /Users/jschilli/dev/agent-tools/humanlayer/humanlayer-wui && HUMANLAYER_DAEMON_SOCKET=~/.humanlayer/daemon-dev.sock bun run tauri dev"
+
+alias tm='tmux'
+alias tma='tmux attach -t'
+alias tms='tmux new -s'
+alias tmd='tmux kill-session -t'
+
+alias mp=open\ /Applications/Typora.app

@@ -448,3 +448,20 @@ export PATH="$BUN_INSTALL/bin:$PATH"
 [[ "$TERM_PROGRAM" == "kiro" ]] && . "$(kiro --locate-shell-integration-path zsh)"
 
 . "$HOME/.atuin/bin/env"
+
+# Added by LM Studio CLI (lms)
+export PATH="$PATH:/Users/jschilli/.lmstudio/bin"
+# End of LM Studio CLI section
+
+# The following lines have been added by Docker Desktop to enable Docker CLI completions.
+fpath=(/Users/jschilli/.docker/completions $fpath)
+autoload -Uz compinit
+compinit
+# End of Docker CLI completions
+export PYENV_ROOT="$HOME/.pyenv"
+export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init -)"
+
+# Added by Antigravity
+export PATH="/Users/jschilli/.antigravity/antigravity/bin:$PATH"
+export PATH="$PATH:/Users/jschilli/.local/bin"export PATH="$HOME/.local/bin:$PATH"
