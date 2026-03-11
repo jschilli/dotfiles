@@ -153,10 +153,6 @@ alias cdr='cd $(git rev-parse --show-toplevel)' # cd to git Root
 alias hs='git rev-parse --short HEAD'
 alias hm='git log --format=%B -n 1 HEAD'
 
-# tmux
-alias tma='tmux attach -t'
-alias tmn='tmux new -s'
-alias tmm='tmux new -s main'
 
 # ceedee dot dot dot
 alias -g ...='../..'
@@ -362,10 +358,7 @@ export PATH="/opt/homebrew/opt/gnu-sed/libexec/gnubin:$PATH"
 
 # Only initialize interactive tools for interactive shells
 if [[ -o interactive ]]; then
-  # mise
-  if type mise &> /dev/null; then
-    eval "$(mise activate zsh)"
-  fi
+
 
   # direnv
   if type direnv &> /dev/null; then
@@ -429,7 +422,10 @@ case ":$PATH:" in
 esac
 # pnpm end
 
-plugins=( git z )export PATH="$PATH:/Users/jschilli/Library/Warm/bin"
+plugins=( git z direnv)
+
+
+export PATH="$PATH:/Users/jschilli/Library/Warm/bin"
 
 export BAT_THEME="Coldark-Dark"
 . "$HOME/.local/bin/env"
@@ -465,3 +461,23 @@ eval "$(pyenv init -)"
 # Added by Antigravity
 export PATH="/Users/jschilli/.antigravity/antigravity/bin:$PATH"
 export PATH="$PATH:/Users/jschilli/.local/bin"export PATH="$HOME/.local/bin:$PATH"
+
+# >>> conda initialize >>>
+# !! Contents within this block are managed by 'conda init' !!
+__conda_setup="$('/Users/jschilli/anaconda3/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
+if [ $? -eq 0 ]; then
+    eval "$__conda_setup"
+else
+    if [ -f "/Users/jschilli/anaconda3/etc/profile.d/conda.sh" ]; then
+        . "/Users/jschilli/anaconda3/etc/profile.d/conda.sh"
+    else
+        export PATH="/Users/jschilli/anaconda3/bin:$PATH"
+    fi
+fi
+unset __conda_setup
+# <<< conda initialize <<<
+
+
+# Amp CLI
+export PATH="/Users/jschilli/.amp/bin:$PATH"
+

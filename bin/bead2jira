@@ -1,0 +1,365 @@
+#!/usr/bin/env bun
+
+/**
+ * bead2jira - Convert beads to JIRA tickets
+ *
+ * Creates JIRA tickets from beads issues with deterministic field mapping.
+ *
+ * Usage:
+ *   bun scripts/bead2jira.ts <bead-id> [options]
+ *   bun scripts/bead2jira.ts warmhub-5lfc
+ *   bun scripts/bead2jira.ts warmhub-5lfc --dry-run
+ *   bun scripts/bead2jira.ts warmhub-5lfc --project WARM
+ *
+ * Options:
+ *   --dry-run         Preview without creating JIRA ticket
+ *   --project CODE    Override JIRA project key (default: WARM)
+ *   --output-format   Output format: text|json (default: text)
+ *   --upload          Upload attachments after creation
+ */
+
+import { spawnSync } from 'child_process'
+import { writeFileSync, mkdirSync, existsSync } from 'fs'
+import { resolve } from 'path'
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface Bead {
+  id: string
+  title: string
+  description: string
+  status: string
+  priority: number
+  issue_type: string
+  created_at: string
+  created_by: string
+  updated_at: string
+}
+
+interface JiraIssueInput {
+  summary: string
+  description: string
+  issueType: string
+  priority: string
+  labels: string[]
+  metadata: Record<string, unknown>
+}
+
+interface JiraIssuesInput {
+  issues: JiraIssueInput[]
+  options: {
+    project: string
+    uploadAttachments: boolean
+  }
+}
+
+// ============================================================================
+// FIELD MAPPINGS (Deterministic)
+// ============================================================================
+
+/**
+ * Map bead issue_type to JIRA issueType
+ *
+ * Bead types: feature, bug, task, epic
+ * JIRA types: Story, Bug, Task, Epic
+ */
+const ISSUE_TYPE_MAP: Record<string, string> = {
+  feature: 'Story',
+  bug: 'Bug',
+  task: 'Task',
+  epic: 'Epic',
+}
+
+/**
+ * Map bead priority (0-4) to JIRA priority
+ *
+ * Bead priorities: 0=critical, 1=high, 2=medium, 3=low, 4=backlog
+ * JIRA priorities: Highest, High, Medium, Low, Lowest
+ */
+const PRIORITY_MAP: Record<number, string> = {
+  0: 'Highest',
+  1: 'High',
+  2: 'Medium',
+  3: 'Low',
+  4: 'Lowest',
+}
+
+// ============================================================================
+// TRANSFORMATIONS
+// ============================================================================
+
+/**
+ * Transform a bead to JIRA issue input format
+ */
+function beadToJiraIssue(bead: Bead): JiraIssueInput {
+  // Map issue type with fallback to Task
+  const issueType = ISSUE_TYPE_MAP[bead.issue_type] || 'Task'
+
+  // Map priority with fallback to Medium (2)
+  const priority = PRIORITY_MAP[bead.priority] ?? 'Medium'
+
+  // Truncate summary to 100 chars if needed
+  let summary = bead.title
+  if (summary.length > 100) {
+    summary = summary.substring(0, 97) + '...'
+  }
+
+  // Build description with bead reference header
+  const description = [`> Imported from bead: \`${bead.id}\``, '', bead.description].join('\n')
+
+  // Labels for traceability
+  const labels = [`bead:${bead.id}`, 'source:beads']
+
+  // Metadata for tracking (not stored in JIRA)
+  const metadata = {
+    beadId: bead.id,
+    beadStatus: bead.status,
+    createdBy: bead.created_by,
+    createdAt: bead.created_at,
+    updatedAt: bead.updated_at,
+  }
+
+  return {
+    summary,
+    description,
+    issueType,
+    priority,
+    labels,
+    metadata,
+  }
+}
+
+// ============================================================================
+// BEAD FETCHING
+// ============================================================================
+
+/**
+ * Fetch bead data using bd CLI
+ */
+function fetchBead(beadId: string): Bead | null {
+  const result = spawnSync('bd', ['show', beadId, '--json'], {
+    encoding: 'utf-8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+  })
+
+  if (result.error) {
+    console.error(`❌ Error running bd: ${result.error.message}`)
+    return null
+  }
+
+  if (result.status !== 0) {
+    console.error(`❌ bd show failed: ${result.stderr}`)
+    return null
+  }
+
+  try {
+    const beads = JSON.parse(result.stdout)
+    if (Array.isArray(beads) && beads.length > 0) {
+      return beads[0] as Bead
+    }
+    console.error(`❌ Bead not found: ${beadId}`)
+    return null
+  } catch (e) {
+    console.error(`❌ Failed to parse bead JSON: ${e}`)
+    return null
+  }
+}
+
+// ============================================================================
+// JIRA CREATION (uses jira-cli)
+// ============================================================================
+
+/**
+ * Create JIRA issue using jira-cli
+ */
+function createJiraIssue(issue: JiraIssueInput, project: string, dryRun: boolean): string | null {
+  if (dryRun) {
+    console.log('\n🔍 DRY RUN - Would create JIRA issue:\n')
+    console.log(`  Summary:    ${issue.summary}`)
+    console.log(`  Type:       ${issue.issueType}`)
+    console.log(`  Priority:   ${issue.priority}`)
+    console.log(`  Labels:     ${issue.labels.join(', ')}`)
+    console.log(`  Project:    ${project}`)
+    console.log(`\n  Description:`)
+    console.log(
+      issue.description
+        .split('\n')
+        .map(l => `    ${l}`)
+        .join('\n'),
+    )
+    return null
+  }
+
+  // Build jira-cli command
+  const args: string[] = ['issue', 'create', '-t', issue.issueType, '-s', issue.summary, '-y', issue.priority, '-p', project, '--template', '-', '--no-input']
+
+  // Add labels
+  for (const label of issue.labels) {
+    args.push('-l', label)
+  }
+
+  // Execute
+  const result = spawnSync('jira', args, {
+    input: issue.description,
+    encoding: 'utf-8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+  })
+
+  if (result.error) {
+    console.error(`❌ Error: ${result.error.message}`)
+    return null
+  }
+
+  if (result.status !== 0) {
+    console.error(`❌ Failed: ${result.stderr}`)
+    return null
+  }
+
+  // Parse issue key from output
+  const match = result.stdout.match(/([A-Z]+-\d+)/)
+  if (!match) {
+    console.error(`❌ Could not parse issue key from: ${result.stdout}`)
+    return null
+  }
+
+  return match[1]
+}
+
+// ============================================================================
+// CLI
+// ============================================================================
+
+interface CliOptions {
+  beadId: string
+  project: string
+  dryRun: boolean
+  outputFormat: 'text' | 'json'
+  upload: boolean
+}
+
+function parseArgs(args: string[]): CliOptions | null {
+  if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
+    console.log(`
+bead2jira - Convert beads to JIRA tickets
+
+Usage:
+  bun scripts/bead2jira.ts <bead-id> [options]
+
+Examples:
+  bun scripts/bead2jira.ts warmhub-5lfc
+  bun scripts/bead2jira.ts warmhub-5lfc --dry-run
+  bun scripts/bead2jira.ts warmhub-5lfc --project WARM
+
+Options:
+  --dry-run           Preview without creating JIRA ticket
+  --project CODE      JIRA project key (default: WARM)
+  --output-format FMT Output format: text|json (default: text)
+  --upload            Upload attachments (reserved for future use)
+  --help, -h          Show this help
+
+Field Mapping:
+  bead.title        → summary (truncated to 100 chars)
+  bead.description  → description (with bead reference header)
+  bead.issue_type   → issueType (feature→Story, bug→Bug, task→Task, epic→Epic)
+  bead.priority     → priority (0→Highest, 1→High, 2→Medium, 3→Low, 4→Lowest)
+  bead.id           → labels (bead:<id>, source:beads)
+`)
+    return null
+  }
+
+  const options: CliOptions = {
+    beadId: args[0],
+    project: 'WARM',
+    dryRun: false,
+    outputFormat: 'text',
+    upload: false,
+  }
+
+  for (let i = 1; i < args.length; i++) {
+    const arg = args[i]
+    switch (arg) {
+      case '--dry-run':
+        options.dryRun = true
+        break
+      case '--project':
+        options.project = args[++i]
+        break
+      case '--output-format':
+        const fmt = args[++i]
+        if (fmt === 'json' || fmt === 'text') {
+          options.outputFormat = fmt
+        }
+        break
+      case '--upload':
+        options.upload = true
+        break
+    }
+  }
+
+  return options
+}
+
+async function main() {
+  const args = process.argv.slice(2)
+  const options = parseArgs(args)
+
+  if (!options) {
+    process.exit(0)
+  }
+
+  console.log(`📦 Fetching bead: ${options.beadId}`)
+
+  // Fetch bead
+  const bead = fetchBead(options.beadId)
+  if (!bead) {
+    process.exit(1)
+  }
+
+  console.log(`✅ Found: ${bead.title}`)
+
+  // Transform to JIRA format
+  const jiraIssue = beadToJiraIssue(bead)
+
+  // Create JIRA issue
+  const issueKey = createJiraIssue(jiraIssue, options.project, options.dryRun)
+
+  if (options.dryRun) {
+    process.exit(0)
+  }
+
+  if (!issueKey) {
+    console.error('❌ Failed to create JIRA issue')
+    process.exit(1)
+  }
+
+  // Output result
+  if (options.outputFormat === 'json') {
+    console.log(
+      JSON.stringify(
+        {
+          success: true,
+          jiraKey: issueKey,
+          beadId: bead.id,
+          summary: jiraIssue.summary,
+          issueType: jiraIssue.issueType,
+          priority: jiraIssue.priority,
+        },
+        null,
+        2,
+      ),
+    )
+  } else {
+    console.log(`\n✅ Created JIRA issue: ${issueKey}`)
+    console.log(`   Bead:     ${bead.id}`)
+    console.log(`   Type:     ${jiraIssue.issueType}`)
+    console.log(`   Priority: ${jiraIssue.priority}`)
+    console.log(`\n   View: https://warmautomation.atlassian.net/browse/${issueKey}`)
+  }
+}
+
+main().catch(err => {
+  console.error('❌ Error:', err)
+  process.exit(1)
+})

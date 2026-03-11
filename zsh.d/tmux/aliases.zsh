@@ -1,0 +1,10 @@
+# tmux
+alias ta='tmux attach -t'
+alias tat='tmux attach -t "$(basename "$PWD")"'
+alias tk='tmux kill-session -t'
+alias tl='tmux list-sessions'
+alias tm='tmux'
+alias tma='tmux attach -t'
+alias tmd='tmux kill-session -t'
+alias tms='tmux new -s'
+alias tn='tmux new -s "$(basename "$PWD")"'

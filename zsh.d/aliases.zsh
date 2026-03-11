@@ -14,9 +14,5 @@ alias warmhub="cd ~/dev/warmhub && cursor ."
 
 alias hl="cd /Users/jschilli/dev/agent-tools/humanlayer/humanlayer-wui && HUMANLAYER_DAEMON_SOCKET=~/.humanlayer/daemon-dev.sock bun run tauri dev"
 
-alias tm='tmux'
-alias tma='tmux attach -t'
-alias tms='tmux new -s'
-alias tmd='tmux kill-session -t'
-
 alias mp=open\ /Applications/Typora.app
+alias obsidian-sync='pushd "/Users/jschilli/Library/Mobile Documents/iCloud~md~obsidian/Documents/jschilli/jschili"; git add .; git commit -m "sync commit"; git pull origin main; git push origin head --no-verify; popd'
