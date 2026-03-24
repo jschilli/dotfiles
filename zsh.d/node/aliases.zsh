@@ -1,4 +1,3 @@
-alias pi='pnpm install'
 alias plf='pnpm lint --fix'
 alias pl='pnpm lint'
 alias pb='pnpm build'

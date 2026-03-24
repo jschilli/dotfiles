@@ -81,6 +81,7 @@ cask 'imageoptim'
 cask 'handbrake'
 # terminal emulators
 brew 'ghostty'
+brew TomAnthony/brews/itermocil
 
 
 tap 'homebrew/cask-fonts'
