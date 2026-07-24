@@ -10,14 +10,9 @@ path_prepend() {
   esac
 }
 
-path_prepend "$HOME/.local/bin"
-path_prepend "$BUN_INSTALL/bin"
-path_prepend "$HOME/bin"
 path_prepend "$HOME/.cargo/bin"
+path_prepend "$HOME/bin"
+path_prepend "$BUN_INSTALL/bin"
+path_prepend "$HOME/.local/bin"
 export PATH
 unset -f path_prepend 2>/dev/null || unset path_prepend
-
-if [ -n "${BASH_VERSION:-}" ] && [ -r "$HOME/.bashrc" ]; then
-  # shellcheck disable=SC1091
-  . "$HOME/.bashrc"
-fi

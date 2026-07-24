@@ -54,6 +54,50 @@ install_herdr_config() {
   fi
 }
 
+ensure_source_hook() {
+  target_path=$1
+  source_line=$2
+  hook_description=$3
+
+  if [ -L "$target_path" ]; then
+    die "refusing to replace existing symlink: $target_path -> $(readlink "$target_path")"
+  fi
+
+  if [ -e "$target_path" ]; then
+    [ -f "$target_path" ] || die "refusing to modify non-file path: $target_path"
+    if grep -Fqx "$source_line" "$target_path"; then
+      printf 'kept existing hook in %s\n' "$target_path"
+      return
+    fi
+    printf '\n# Load %s.\n%s\n' "$hook_description" "$source_line" >>"$target_path"
+    printf 'added login hook to %s\n' "$target_path"
+    return
+  fi
+
+  {
+    printf '# Load %s.\n' "$hook_description"
+    printf '%s\n' "$source_line"
+  } >"$target_path"
+  chmod 644 "$target_path"
+  printf 'installed %s\n' "$target_path"
+}
+
+install_linux_shell_hooks() {
+  # shellcheck disable=SC2016
+  linux_profile='. "$HOME/.dotfiles/profile.linux"'
+  for target_path in "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.bashrc" "$HOME/.zprofile"; do
+    ensure_source_hook "$target_path" "$linux_profile" "the dotfiles Linux login environment"
+  done
+}
+
+install_darwin_zsh_hook() {
+  # shellcheck disable=SC2016
+  ensure_source_hook \
+    "$HOME/.zshrc" \
+    '. "$HOME/.dotfiles/zshrc"' \
+    "the tracked dotfiles macOS Zsh configuration"
+}
+
 herdr_bin() {
   if command -v herdr >/dev/null 2>&1; then
     command -v herdr
@@ -118,12 +162,9 @@ case "$profile" in
   linux)
     zshrc_source=$repo_dir/zshrc.linux
     gitconfig_source=$repo_dir/gitconfig.linux
-    profile_source=$repo_dir/profile.linux
     ;;
   darwin)
-    zshrc_source=$repo_dir/zshrc
     gitconfig_source=$repo_dir/gitconfig
-    profile_source=
     ;;
   *)
     die "unsupported profile: $profile"
@@ -135,9 +176,13 @@ link_path "$gitconfig_source" "$HOME/.gitconfig"
 link_path "$repo_dir/githelpers" "$HOME/.githelpers"
 link_path "$repo_dir/gitignore" "$HOME/.gitignore"
 link_path "$repo_dir/psqlrc" "$HOME/.psqlrc"
-link_path "$zshrc_source" "$HOME/.zshrc"
-[ -z "$profile_source" ] || link_path "$profile_source" "$HOME/.profile"
 link_path "$repo_dir/bin" "$HOME/bin"
+if [ "$profile" = linux ]; then
+  link_path "$zshrc_source" "$HOME/.zshrc"
+  install_linux_shell_hooks
+else
+  install_darwin_zsh_hook
+fi
 install_herdr_config
 
 if [ "$install_tools" -eq 1 ]; then

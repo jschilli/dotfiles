@@ -2,7 +2,6 @@
 # ~/.zshrc.local rather than in this repository.
 
 export ZSH="$HOME/.dotfiles/zsh.d"
-export BUN_INSTALL="$HOME/.bun"
 export CLICOLOR=true
 export EDITOR="${EDITOR:-vim}"
 export GIT_EDITOR="${GIT_EDITOR:-vim}"
@@ -10,17 +9,7 @@ export HISTFILE="$HOME/.zsh_history"
 export HISTSIZE=100000
 export SAVEHIST=100000
 
-typeset -U path PATH
-path=(
-  "$HOME/.local/bin"
-  "$BUN_INSTALL/bin"
-  "$HOME/bin"
-  "$HOME/.cargo/bin"
-  /usr/local/bin
-  /usr/local/sbin
-  $path
-)
-export PATH
+source "$HOME/.dotfiles/profile.linux"
 
 setopt APPEND_HISTORY
 setopt COMPLETE_IN_WORD
