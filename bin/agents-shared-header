@@ -35,6 +35,16 @@ make_temp() {
   mktemp "${TMPDIR:-/tmp}/agents-shared-header.XXXXXX"
 }
 
+file_mode() {
+  local target="$1"
+
+  case "$(uname -s)" in
+    Darwin) stat -f '%Lp' "$target" ;;
+    Linux) stat -c '%a' "$target" ;;
+    *) die "unsupported operating system for mode detection: $(uname -s)" ;;
+  esac
+}
+
 target_files() {
   if [ "${AGENTS_SHARED_HEADER_TARGETS:-}" != "" ]; then
     local old_ifs="$IFS"
@@ -99,7 +109,7 @@ write_new_file() {
   tmp="$(mktemp "$dir/.${base}.tmp.XXXXXX")"
 
   if [ -f "$target" ]; then
-    mode="$(stat -f '%Lp' "$target")"
+    mode="$(file_mode "$target")"
   fi
 
   if [ ! -f "$target" ] || [ ! -s "$target" ]; then
@@ -127,7 +137,7 @@ replace_existing_block() {
   dir="$(dirname "$target")"
   base="$(basename "$target")"
   tmp="$(mktemp "$dir/.${base}.tmp.XXXXXX")"
-  mode="$(stat -f '%Lp' "$target")"
+  mode="$(file_mode "$target")"
 
   awk -v repl="$input_file" '
     BEGIN {
