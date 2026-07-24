@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# att — Jeff's attention system CLI, runnable from anywhere.
+# Installed to ~/bin/att (see repo scripts/bin/). Subcommands:
+#   att decide ...    record a decision on a review item or group
+#   att generate ...  produce the daily review
+#   att route ...     run the router
+#   att query ...     read the store (pending candidates, open handoffs)
+#   att capture ...   trusted file-writing path for voice capture
+#   att dispatch ...  queue explicitly approved work for the dispatch executor
+#   att watchdog ...  run the loop-liveness watchdog
+set -euo pipefail
+ATT_HOME="$HOME/dev/personal/attention"
+cd "$ATT_HOME"
+sub="${1:-help}"; shift 2>/dev/null || true
+case "$sub" in
+  decide|generate) exec bun scripts/att-review.ts "$sub" "$@" ;;
+  route)           exec bun scripts/att-route.ts "$@" ;;
+  query)           exec bun scripts/att-query.ts "$@" ;;
+  capture)         exec bun scripts/att-capture.ts "$@" ;;
+  dispatch)        exec bun scripts/att-dispatch.ts "$@" ;;
+  watchdog)        exec bun scripts/watchdog.ts --registry registry/loops.toml "$@" ;;
+  *) echo "att: decide|generate|route|query|capture|dispatch|watchdog (runs in $ATT_HOME)"; exit 2 ;;
+esac

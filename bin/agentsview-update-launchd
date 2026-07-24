@@ -1,0 +1,318 @@
+#!/bin/zsh
+
+set -euo pipefail
+
+label="${AGENTSVIEW_LAUNCHD_LABEL:-com.agentsview.serve}"
+plist="${AGENTSVIEW_LAUNCHD_PLIST:-$HOME/Library/LaunchAgents/$label.plist}"
+domain="gui/$(id -u)"
+target="$domain/$label"
+ready_timeout="${AGENTSVIEW_READY_TIMEOUT:-7200}"
+lifecycle_timeout="${AGENTSVIEW_LIFECYCLE_TIMEOUT:-60}"
+lock_dir="${AGENTSVIEW_DATA_DIR:-$HOME/.agentsview}/locks/$label.update.lock"
+wait_for_ready=1
+force_update=0
+lock_acquired=0
+unload_started=0
+service_reloaded=0
+handling_exit=0
+update_pid=""
+
+usage() {
+  cat <<'EOF'
+Usage: agentsview-update-launchd [--force] [--no-wait] [--timeout SECONDS]
+
+Update the exact AgentsView binary owned by a loaded macOS LaunchAgent. The
+command prevents concurrent updates and duplicate `agentsview serve` writers,
+unloads launchd, updates and verifies its binary, reloads launchd, then checks
+the running executable and /api/v1/version response.
+
+Options:
+  --force            Ignore the AgentsView update-check cache.
+  --no-wait          Return after launchd starts the verified executable.
+  --timeout SECONDS  Readiness timeout (default: 7200).
+  -h, --help         Show this help.
+EOF
+}
+
+die() {
+  print -u2 -- "agentsview-update-launchd: $*"
+  exit 1
+}
+
+launchd_pid() {
+  launchctl print "$target" 2>/dev/null |
+    awk '/^[[:space:]]*pid = / { print $3; exit }' || true
+}
+
+serve_pids() {
+  ps -axo pid=,command= |
+    awk '$3 == "serve" && $2 ~ /(^|\/)agentsview$/ { print $1 }'
+}
+
+describe_serve_pids() {
+  local pid
+
+  for pid in ${(f)$(serve_pids)}; do
+    ps -p "$pid" -o pid=,command=
+  done
+}
+
+assert_only_launchd_serve() {
+  local allowed_pid=$1
+  local pid
+
+  for pid in ${(f)$(serve_pids)}; do
+    [[ "$pid" == "$allowed_pid" ]] || {
+      print -u2 -- "Unexpected AgentsView server prevents a safe update:"
+      describe_serve_pids >&2
+      die "stop the duplicate server, then retry"
+    }
+  done
+}
+
+assert_no_serves() {
+  [[ -z "$(serve_pids)" ]] || {
+    print -u2 -- "Unexpected AgentsView server prevents launchd reload:"
+    describe_serve_pids >&2
+    die "stop the duplicate server, then retry"
+  }
+}
+
+bootstrap_service() {
+  local attempt
+
+  for attempt in 1 2 3; do
+    if launchctl bootstrap "$domain" "$plist"; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+restore_service_registration() {
+  if (( unload_started && ! service_reloaded )); then
+    if launchctl print "$target" >/dev/null 2>&1; then
+      return 0
+    fi
+    if [[ -n "$(serve_pids)" ]]; then
+      print -u2 -- "CRITICAL: refusing to restore launchd alongside another AgentsView server:"
+      describe_serve_pids >&2
+      return 1
+    fi
+    print -u2 -- "Restoring $label under launchd."
+    if bootstrap_service; then
+      service_reloaded=1
+      unload_started=0
+    else
+      print -u2 -- "CRITICAL: could not restore $label; run:"
+      print -u2 -- "  launchctl bootstrap '$domain' '$plist'"
+      return 1
+    fi
+  fi
+}
+
+finish() {
+  local exit_code=$1
+
+  (( handling_exit )) && exit "$exit_code"
+  handling_exit=1
+  trap - EXIT INT TERM HUP
+
+  if [[ -n "$update_pid" ]] && kill -0 "$update_pid" 2>/dev/null; then
+    kill -TERM "$update_pid" 2>/dev/null || true
+    wait "$update_pid" 2>/dev/null || true
+  fi
+  if (( exit_code != 0 )); then
+    restore_service_registration || true
+  fi
+  if (( lock_acquired )); then
+    rmdir "$lock_dir" 2>/dev/null || true
+  fi
+  exit "$exit_code"
+}
+
+verify_loaded_binary() {
+  local pid=$1
+  local loaded_bin loaded_inode disk_inode
+
+  loaded_bin=$(lsof -a -p "$pid" -d txt -Fni 2>/dev/null |
+    awk '/^n/ { print substr($0, 2); exit }' || true)
+  loaded_inode=$(lsof -a -p "$pid" -d txt -Fni 2>/dev/null |
+    awk '/^i/ { print substr($0, 2); exit }' || true)
+  disk_inode=$(stat -f '%i' "$agentsview_bin")
+
+  [[ "${loaded_bin:A}" == "${agentsview_bin:A}" ]] || die \
+    "launchd loaded unexpected executable: ${loaded_bin:-unknown}"
+  [[ -n "$loaded_inode" && "$loaded_inode" == "$disk_inode" ]] || die \
+    "launchd is running a stale inode for $agentsview_bin"
+}
+
+listener_ports() {
+  local pid=$1
+
+  lsof -nP -a -p "$pid" -iTCP -sTCP:LISTEN -Fn 2>/dev/null |
+    awk '/^n/ && match($0, /:([0-9]+)$/) { print substr($0, RSTART + 1) }' || true
+}
+
+version_is_ready() {
+  local pid=$1
+  local auth_token="" port payload served_version
+  local -a curl_args
+
+  if [[ -f "${AGENTSVIEW_DATA_DIR:-$HOME/.agentsview}/config.toml" ]]; then
+    auth_token=$(sed -n 's/^auth_token = "\(.*\)"$/\1/p' \
+      "${AGENTSVIEW_DATA_DIR:-$HOME/.agentsview}/config.toml" | head -n 1)
+  fi
+  curl_args=(-fsS --max-time 2)
+  [[ -n "$auth_token" ]] && curl_args+=(-H "Authorization: Bearer $auth_token")
+
+  for port in ${(f)$(listener_ports "$pid")}; do
+    payload=$(curl "${curl_args[@]}" "http://127.0.0.1:$port/api/v1/version" 2>/dev/null || true)
+    served_version=$(print -r -- "$payload" | jq -r '.version // empty' 2>/dev/null || true)
+    served_version="${served_version#v}"
+    [[ -n "$served_version" && "$served_version" == "$expected_version" ]] && return 0
+  done
+  return 1
+}
+
+trap 'finish $?' EXIT
+trap 'finish 130' INT
+trap 'finish 143' TERM
+trap 'finish 129' HUP
+
+while (( $# )); do
+  case "$1" in
+    --force)
+      force_update=1
+      ;;
+    --no-wait)
+      wait_for_ready=0
+      ;;
+    --timeout)
+      (( $# >= 2 )) || die "--timeout requires a value"
+      ready_timeout="$2"
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      die "unknown argument: $1"
+      ;;
+  esac
+  shift
+done
+
+[[ "$OSTYPE" == darwin* ]] || die "launchd updates are supported only on macOS"
+for value in "$ready_timeout" "$lifecycle_timeout"; do
+  case "$value" in
+    ''|*[!0-9]*) die "timeouts must be non-negative integers" ;;
+  esac
+done
+for dependency in plutil launchctl lsof stat curl jq; do
+  command -v "$dependency" >/dev/null || die "missing dependency: $dependency"
+done
+[[ -f "$plist" ]] || die "plist not found: $plist"
+plutil -lint "$plist" >/dev/null || die "invalid plist: $plist"
+
+agentsview_bin=$(plutil -extract ProgramArguments.0 raw -o - "$plist")
+[[ -x "$agentsview_bin" ]] || die "plist executable is not runnable: $agentsview_bin"
+[[ ! -L "$agentsview_bin" ]] || die "plist executable must not be a symlink: $agentsview_bin"
+
+interactive_bin=$(command -v agentsview 2>/dev/null || true)
+[[ -n "$interactive_bin" ]] || die "agentsview is not on PATH"
+[[ "${interactive_bin:A}" == "${agentsview_bin:A}" ]] || die \
+  "plist and shell use different binaries; set ProgramArguments[0] to ${interactive_bin:A} and reload launchd"
+
+mkdir -p "${lock_dir:h}"
+mkdir "$lock_dir" 2>/dev/null || die "another $label update is already running"
+lock_acquired=1
+
+initial_pid=$(launchd_pid)
+[[ -n "$initial_pid" ]] || die "$target is not running; refusing to change its stopped state"
+assert_only_launchd_serve "$initial_pid"
+
+before_version=$("$agentsview_bin" --version)
+print -- "Unloading $target ($before_version)..."
+unload_started=1
+if ! launchctl bootout "$target" && launchctl print "$target" >/dev/null 2>&1; then
+  die "could not unload $target"
+fi
+
+deadline=$(( SECONDS + lifecycle_timeout ))
+while launchctl print "$target" >/dev/null 2>&1; do
+  (( SECONDS <= deadline )) || die "launchd did not unload $target within ${lifecycle_timeout}s"
+  sleep 1
+done
+while [[ -n "$(serve_pids)" ]]; do
+  (( SECONDS <= deadline )) || {
+    describe_serve_pids >&2
+    die "AgentsView did not exit within ${lifecycle_timeout}s"
+  }
+  sleep 1
+done
+
+update_args=(update --yes)
+(( force_update )) && update_args+=(--force)
+"$agentsview_bin" "${update_args[@]}" &
+update_pid=$!
+set +e
+wait "$update_pid"
+update_status=$?
+set -e
+update_pid=""
+(( update_status == 0 )) || exit "$update_status"
+
+after_version=$("$agentsview_bin" --version)
+expected_version=$(print -r -- "$after_version" | awk '{ print $2 }')
+expected_version="${expected_version#v}"
+[[ -n "$expected_version" ]] || die "could not parse updated version: $after_version"
+assert_no_serves
+
+print -- "Reloading $target ($after_version)..."
+bootstrap_service || die "could not bootstrap $target"
+service_reloaded=1
+unload_started=0
+
+deadline=$(( SECONDS + ready_timeout ))
+service_pid=""
+while (( SECONDS <= deadline )); do
+  service_pid=$(launchd_pid)
+  [[ -n "$service_pid" ]] && kill -0 "$service_pid" 2>/dev/null && break
+  sleep 1
+done
+[[ -n "$service_pid" ]] && kill -0 "$service_pid" 2>/dev/null ||
+  die "launchd did not start $label within ${ready_timeout}s"
+verify_loaded_binary "$service_pid"
+
+if (( wait_for_ready )); then
+  print -- "Waiting for AgentsView readiness (PID $service_pid)..."
+  last_report=$SECONDS
+  while (( SECONDS <= deadline )); do
+    current_pid=$(launchd_pid)
+    if [[ -z "$current_pid" ]] || ! kill -0 "$current_pid" 2>/dev/null; then
+      sleep 1
+      continue
+    fi
+    if [[ "$current_pid" != "$service_pid" ]]; then
+      service_pid="$current_pid"
+      verify_loaded_binary "$service_pid"
+      print -- "AgentsView restarted during startup (PID $service_pid)."
+    fi
+    if version_is_ready "$service_pid"; then
+      print -- "Ready: $after_version (PID $service_pid, $agentsview_bin)"
+      exit 0
+    fi
+    if (( SECONDS - last_report >= 15 )); then
+      "$agentsview_bin" daemon status || true
+      last_report=$SECONDS
+    fi
+    sleep 2
+  done
+  "$agentsview_bin" daemon status || true
+  die "AgentsView did not serve version $expected_version within ${ready_timeout}s"
+fi
+
+print -- "Started: $after_version (PID $service_pid, $agentsview_bin)"

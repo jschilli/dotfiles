@@ -1,0 +1,278 @@
+#!/bin/bash
+set -euo pipefail
+
+START_TAG="<shared_header>"
+END_TAG="</shared_header>"
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  agents-shared-header set < header.md
+  agents-shared-header set --file header.md
+  agents-shared-header --file header.md
+  agents-shared-header clear
+  agents-shared-header show
+
+Edits this block in all global agent files:
+  <shared_header>
+  ...
+  </shared_header>
+
+Targets:
+  ~/.claude/CLAUDE.md
+  ~/.codex/AGENTS.md
+  ~/.gemini/AGENTS.md
+  ~/.agents/AGENTS.md
+USAGE
+}
+
+die() {
+  printf 'agents-shared-header: %s\n' "$*" >&2
+  exit 1
+}
+
+make_temp() {
+  mktemp "${TMPDIR:-/tmp}/agents-shared-header.XXXXXX"
+}
+
+target_files() {
+  if [ "${AGENTS_SHARED_HEADER_TARGETS:-}" != "" ]; then
+    local old_ifs="$IFS"
+    IFS=:
+    for target in $AGENTS_SHARED_HEADER_TARGETS; do
+      [ "$target" = "" ] || printf '%s\n' "$target"
+    done
+    IFS="$old_ifs"
+    return
+  fi
+
+  printf '%s\n' \
+    "$HOME/.claude/CLAUDE.md" \
+    "$HOME/.codex/AGENTS.md" \
+    "$HOME/.gemini/AGENTS.md" \
+    "$HOME/.agents/AGENTS.md"
+}
+
+emit_block() {
+  local input_file="$1"
+  printf '%s\n' "$START_TAG"
+  if [ -s "$input_file" ]; then
+    cat "$input_file"
+    if [ "$(tail -c 1 "$input_file" | od -An -t x1 | tr -d ' \n')" != "0a" ]; then
+      printf '\n'
+    fi
+  fi
+  printf '%s\n' "$END_TAG"
+}
+
+validate_block_shape() {
+  local target="$1"
+  local counts
+  local starts
+  local ends
+
+  [ -f "$target" ] || return 0
+
+  counts="$(awk '
+    /^[[:space:]]*<shared_header>[[:space:]]*$/ { starts++ }
+    /^[[:space:]]*<\/shared_header>[[:space:]]*$/ { ends++ }
+    END { printf "%d %d", starts, ends }
+  ' "$target")"
+  starts="${counts%% *}"
+  ends="${counts##* }"
+
+  [ "$starts" -eq "$ends" ] || die "$target has mismatched shared_header tags"
+  [ "$starts" -le 1 ] || die "$target has multiple shared_header blocks"
+}
+
+write_new_file() {
+  local target="$1"
+  local input_file="$2"
+  local dir
+  local base
+  local tmp
+  local mode="644"
+
+  dir="$(dirname "$target")"
+  base="$(basename "$target")"
+  mkdir -p "$dir"
+  tmp="$(mktemp "$dir/.${base}.tmp.XXXXXX")"
+
+  if [ -f "$target" ]; then
+    mode="$(stat -f '%Lp' "$target")"
+  fi
+
+  if [ ! -f "$target" ] || [ ! -s "$target" ]; then
+    emit_block "$input_file" > "$tmp"
+  else
+    {
+      emit_block "$input_file"
+      printf '\n'
+      cat "$target"
+    } > "$tmp"
+  fi
+
+  chmod "$mode" "$tmp"
+  mv "$tmp" "$target"
+}
+
+replace_existing_block() {
+  local target="$1"
+  local input_file="$2"
+  local dir
+  local base
+  local tmp
+  local mode
+
+  dir="$(dirname "$target")"
+  base="$(basename "$target")"
+  tmp="$(mktemp "$dir/.${base}.tmp.XXXXXX")"
+  mode="$(stat -f '%Lp' "$target")"
+
+  awk -v repl="$input_file" '
+    BEGIN {
+      while ((getline line < repl) > 0) {
+        replacement[++replacement_count] = line
+      }
+      close(repl)
+    }
+
+    /^[[:space:]]*<shared_header>[[:space:]]*$/ {
+      print "<shared_header>"
+      for (i = 1; i <= replacement_count; i++) {
+        print replacement[i]
+      }
+      print "</shared_header>"
+      in_block = 1
+      next
+    }
+
+    /^[[:space:]]*<\/shared_header>[[:space:]]*$/ && in_block {
+      in_block = 0
+      next
+    }
+
+    in_block {
+      next
+    }
+
+    {
+      print
+    }
+  ' "$target" > "$tmp"
+
+  chmod "$mode" "$tmp"
+  mv "$tmp" "$target"
+}
+
+apply_header() {
+  local target="$1"
+  local input_file="$2"
+
+  validate_block_shape "$target"
+
+  if [ ! -f "$target" ] || ! awk '
+    /^[[:space:]]*<shared_header>[[:space:]]*$/ { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' "$target"; then
+    write_new_file "$target" "$input_file"
+  else
+    replace_existing_block "$target" "$input_file"
+  fi
+
+  printf 'updated %s\n' "$target"
+}
+
+show_header() {
+  local target="$1"
+
+  printf '== %s ==\n' "$target"
+  if [ ! -f "$target" ]; then
+    printf '(missing file)\n\n'
+    return
+  fi
+
+  awk '
+    /^[[:space:]]*<shared_header>[[:space:]]*$/ { in_block = 1; found = 1; next }
+    /^[[:space:]]*<\/shared_header>[[:space:]]*$/ && in_block { in_block = 0; next }
+    in_block { print }
+    END { if (!found) print "(missing block)" }
+  ' "$target"
+  printf '\n'
+}
+
+input_from_stdin() {
+  local tmp
+  tmp="$(make_temp)"
+  cat > "$tmp"
+  printf '%s\n' "$tmp"
+}
+
+input_from_file() {
+  local input_path="$1"
+  [ -f "$input_path" ] || die "input file not found: $input_path"
+  printf '%s\n' "$input_path"
+}
+
+main() {
+  local command="${1:-}"
+  local input_file=""
+  local remove_input_file=0
+  local target
+
+  case "$command" in
+    ""|-h|--help|help)
+      usage
+      ;;
+    show)
+      shift
+      [ "$#" -eq 0 ] || die "show does not accept arguments"
+      while IFS= read -r target; do
+        show_header "$target"
+      done < <(target_files)
+      ;;
+    clear)
+      shift
+      [ "$#" -eq 0 ] || die "clear does not accept arguments"
+      input_file="$(make_temp)"
+      : > "$input_file"
+      while IFS= read -r target; do
+        apply_header "$target" "$input_file"
+      done < <(target_files)
+      rm -f "$input_file"
+      ;;
+    set)
+      shift
+      if [ "${1:-}" = "--file" ]; then
+        shift
+        [ "${1:-}" != "" ] || die "--file needs a path"
+        input_file="$(input_from_file "$1")"
+        shift
+        [ "$#" -eq 0 ] || die "unexpected arguments after input file"
+      else
+        [ "$#" -eq 0 ] || die "set reads from stdin or set --file path"
+        input_file="$(input_from_stdin)"
+        remove_input_file=1
+      fi
+      while IFS= read -r target; do
+        apply_header "$target" "$input_file"
+      done < <(target_files)
+      [ "$remove_input_file" -eq 0 ] || rm -f "$input_file"
+      ;;
+    --file)
+      shift
+      [ "${1:-}" != "" ] || die "--file needs a path"
+      input_file="$(input_from_file "$1")"
+      shift
+      [ "$#" -eq 0 ] || die "unexpected arguments after input file"
+      while IFS= read -r target; do
+        apply_header "$target" "$input_file"
+      done < <(target_files)
+      ;;
+    *)
+      die "unknown command: $command"
+      ;;
+  esac
+}
+
+main "$@"
