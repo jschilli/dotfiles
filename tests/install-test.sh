@@ -49,6 +49,8 @@ if command -v zsh >/dev/null 2>&1; then
     [[ "$path[2]" == "$HOME/.bun/bin" ]]
     [[ "$path[3]" == "$HOME/bin" ]]
     [[ "$path[4]" == "$HOME/.cargo/bin" ]]
+    [[ "$path[5]" == "/usr/local/bin" ]]
+    [[ "$path[6]" == "/usr/local/sbin" ]]
   '
   HOME=$test_home ZDOTDIR=$test_home TERM=xterm-256color zsh -lic '
     alias cxa >/dev/null
