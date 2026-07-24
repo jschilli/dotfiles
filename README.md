@@ -14,8 +14,9 @@ make linux
 ```
 
 `make linux` is intended for Linux development VMs. It installs a portable Zsh
-configuration, a Linux-safe Git configuration, Herdr, and the Claude Code and
-Codex Herdr integrations. It is idempotent and keeps an existing Herdr config.
+and login-shell environment, a Linux-safe Git configuration, Herdr, and the
+Claude Code and Codex Herdr integrations. It is idempotent and keeps an existing
+Herdr config.
 
 On macOS:
 

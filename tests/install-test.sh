@@ -27,9 +27,23 @@ assert_link() {
 }
 
 assert_link "$test_home/.zshrc" "$repo_dir/zshrc.linux"
+assert_link "$test_home/.profile" "$repo_dir/profile.linux"
 assert_link "$test_home/.gitconfig" "$repo_dir/gitconfig.linux"
 assert_link "$test_home/bin" "$repo_dir/bin"
 cmp "$repo_dir/config/herdr/config.toml" "$test_home/.config/herdr/config.toml"
+
+HOME=$test_home /bin/sh -c '
+  . "$HOME/.profile"
+  command -v sh >/dev/null
+  case ":$PATH:" in
+    *":$HOME/.local/bin:"*) ;;
+    *) exit 1 ;;
+  esac
+  case ":$PATH:" in
+    *":$HOME/.bun/bin:"*) ;;
+    *) exit 1 ;;
+  esac
+'
 
 if command -v zsh >/dev/null 2>&1; then
   HOME=$test_home ZDOTDIR=$test_home TERM=xterm-256color zsh -lic '
