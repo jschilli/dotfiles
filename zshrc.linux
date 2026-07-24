@@ -1,0 +1,73 @@
+# Linux development VM profile. Keep host-specific or secret configuration in
+# ~/.zshrc.local rather than in this repository.
+
+export ZSH="$HOME/.dotfiles/zsh.d"
+export BUN_INSTALL="$HOME/.bun"
+export CLICOLOR=true
+export EDITOR="${EDITOR:-vim}"
+export GIT_EDITOR="${GIT_EDITOR:-vim}"
+export HISTFILE="$HOME/.zsh_history"
+export HISTSIZE=100000
+export SAVEHIST=100000
+
+typeset -U path PATH
+path=(
+  "$HOME/.local/bin"
+  "$BUN_INSTALL/bin"
+  "$HOME/bin"
+  "$HOME/.cargo/bin"
+  /usr/local/bin
+  /usr/local/sbin
+  $path
+)
+export PATH
+
+setopt APPEND_HISTORY
+setopt COMPLETE_IN_WORD
+setopt EXTENDED_HISTORY
+setopt HIST_IGNORE_ALL_DUPS
+setopt HIST_REDUCE_BLANKS
+setopt HIST_VERIFY
+setopt INC_APPEND_HISTORY
+setopt NO_BG_NICE
+setopt NO_HUP
+setopt NO_LIST_BEEP
+setopt PROMPT_SUBST
+setopt SHARE_HISTORY
+
+autoload -Uz compinit
+compinit -C
+bindkey -e
+unsetopt flowcontrol
+
+portable_fragments=(
+  "$ZSH/aliases.Linux.sh"
+  "$ZSH/completion.zsh"
+  "$ZSH/git-aliases.zsh"
+  "$ZSH/agents/agents.zsh"
+  "$ZSH/claude/claude.zsh"
+  "$ZSH/node/aliases.zsh"
+  "$ZSH/rust-aliases.zsh"
+  "$ZSH/tmux/aliases.zsh"
+)
+
+for config_file in $portable_fragments; do
+  [[ -r "$config_file" ]] && source "$config_file"
+done
+unset portable_fragments config_file
+
+if [[ -s "$HOME/.nvm/nvm.sh" ]]; then
+  export NVM_DIR="$HOME/.nvm"
+  source "$NVM_DIR/nvm.sh"
+fi
+
+if command -v direnv >/dev/null 2>&1; then
+  eval "$(direnv hook zsh)"
+fi
+
+if command -v starship >/dev/null 2>&1; then
+  export STARSHIP_CONFIG="$HOME/.dotfiles/config/nerd-font-symbols.toml"
+  eval "$(starship init zsh)"
+fi
+
+[[ -r "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"
