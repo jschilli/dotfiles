@@ -4,10 +4,17 @@
 export BUN_INSTALL="$HOME/.bun"
 
 path_prepend() {
-  case ":$PATH:" in
-    *":$1:"*) ;;
-    *) PATH="$1:$PATH" ;;
-  esac
+  path_to_add=$1
+  rebuilt_path=$path_to_add
+  old_ifs=$IFS
+  IFS=:
+  # shellcheck disable=SC2086
+  for path_entry in $PATH; do
+    [ -z "$path_entry" ] && continue
+    [ "$path_entry" = "$path_to_add" ] || rebuilt_path="$rebuilt_path:$path_entry"
+  done
+  IFS=$old_ifs
+  PATH=$rebuilt_path
 }
 
 path_prepend "/usr/local/sbin"
@@ -18,3 +25,4 @@ path_prepend "$BUN_INSTALL/bin"
 path_prepend "$HOME/.local/bin"
 export PATH
 unset -f path_prepend 2>/dev/null || unset path_prepend
+unset path_to_add rebuilt_path old_ifs path_entry
