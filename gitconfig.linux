@@ -1,0 +1,36 @@
+[user]
+	name = Jeff Schilling
+	email = jeff@warmhub.com
+
+[core]
+	excludesfile = ~/.gitignore
+
+[alias]
+	co = checkout
+	st = status
+	pu = pull
+	up = push
+	l = "!. ~/.githelpers && pretty_git_log"
+	la = "!git l --all"
+	lr = "!git l -30"
+	lra = "!git lr --all"
+	tree = log --oneline --decorate --graph
+
+[color]
+	diff = auto
+	status = auto
+	branch = auto
+	ui = true
+
+[push]
+	default = current
+	followTags = true
+
+[branch]
+	autosetuprebase = always
+
+[init]
+	defaultBranch = main
+
+[pull]
+	rebase = true

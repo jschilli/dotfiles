@@ -1,36 +1,144 @@
 #!/usr/bin/env sh
+set -eu
 
-set -e
+repo_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+profile=auto
+install_tools=1
+install_integrations=1
 
-DOTFILE_PATH=$(pwd)
-export DOTFILE_PATH;
+usage() {
+  cat <<'USAGE'
+Usage: ./install [--profile auto|linux|darwin] [--without-tools] [--without-integrations]
 
-# install git stuff
-# ln -s $DOTFILE_PATH/gitconfig ~/.gitconfig
-# ln -s $DOTFILE_PATH/gitignore ~/.gitignore
-# ln -s $DOTFILE_PATH/githelpers ~/.githelperss
+Install this repository into the current user's home directory.
 
-# install zsh stuff
-if `which starship`; then
-  # all good
-  echo "starship already installed"
+Profiles:
+  auto     Select linux or darwin from uname (default)
+  linux    Use the portable cloud/development VM configuration
+  darwin   Use the full macOS configuration
+USAGE
+}
+
+die() {
+  printf 'dotfiles: %s\n' "$*" >&2
+  exit 1
+}
+
+link_path() {
+  source_path=$1
+  target_path=$2
+
+  if [ -L "$target_path" ]; then
+    existing_source=$(readlink "$target_path")
+    [ "$existing_source" = "$source_path" ] ||
+      die "refusing to retarget existing symlink: $target_path -> $existing_source"
+  elif [ -e "$target_path" ]; then
+    die "refusing to replace existing path: $target_path"
   else
-  	sh -c "$(curl -fsSL https://starship.rs/install.sh)" -- -y
-
-fi
-# does a zshrc already exist?
-if [ -f ~/.zshrc ]; then
-  echo "zshrc already exists"
-  if grep -q ".dotfiles" ~/.zshrc; then
-    echo "zshrc already has .dotfiles"
-  else
-    echo "zshrc does not have .dotfiles"
-    echo . ~/.dotfiles/zshrc >> ~/.zshrc
+    ln -s "$source_path" "$target_path"
   fi
-else
-  echo "zshrc does not exist"
-  ln -s $DOTFILE_PATH/zshrc ~/.zshrc
+  printf 'linked %s -> %s\n' "$target_path" "$source_path"
+}
+
+install_herdr_config() {
+  config_dir=$HOME/.config/herdr
+  config_path=$config_dir/config.toml
+
+  mkdir -p "$config_dir"
+  if [ ! -e "$config_path" ]; then
+    cp "$repo_dir/config/herdr/config.toml" "$config_path"
+    chmod 600 "$config_path"
+    printf 'installed %s\n' "$config_path"
+  else
+    printf 'kept existing %s\n' "$config_path"
+  fi
+}
+
+herdr_bin() {
+  if command -v herdr >/dev/null 2>&1; then
+    command -v herdr
+  elif [ -x "$HOME/.local/bin/herdr" ]; then
+    printf '%s\n' "$HOME/.local/bin/herdr"
+  else
+    return 1
+  fi
+}
+
+install_herdr() {
+  if ! herdr_bin >/dev/null 2>&1; then
+    command -v curl >/dev/null 2>&1 || die "curl is required to install Herdr"
+    printf 'installing Herdr from https://herdr.dev/install.sh\n'
+    curl -fsSL https://herdr.dev/install.sh | sh
+  fi
+
+  resolved_herdr=$(herdr_bin) || die "Herdr installer completed without a runnable binary"
+  "$resolved_herdr" --version
+
+  if [ "$install_integrations" -eq 1 ]; then
+    mkdir -p "$HOME/.claude" "$HOME/.codex"
+    "$resolved_herdr" integration install claude
+    "$resolved_herdr" integration install codex
+  fi
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --profile)
+      [ "$#" -ge 2 ] || die "--profile requires a value"
+      profile=$2
+      shift 2
+      ;;
+    --without-tools)
+      install_tools=0
+      shift
+      ;;
+    --without-integrations)
+      install_integrations=0
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      die "unknown argument: $1"
+      ;;
+  esac
+done
+
+if [ "$profile" = auto ]; then
+  case $(uname -s) in
+    Linux) profile=linux ;;
+    Darwin) profile=darwin ;;
+    *) die "unsupported operating system: $(uname -s)" ;;
+  esac
 fi
 
-#instal bins
-ln -s $DOTFILE_PATH/bin ~/bin
+case "$profile" in
+  linux)
+    zshrc_source=$repo_dir/zshrc.linux
+    gitconfig_source=$repo_dir/gitconfig.linux
+    ;;
+  darwin)
+    zshrc_source=$repo_dir/zshrc
+    gitconfig_source=$repo_dir/gitconfig
+    ;;
+  *)
+    die "unsupported profile: $profile"
+    ;;
+esac
+
+mkdir -p "$HOME/.config" "$HOME/.local/bin"
+link_path "$gitconfig_source" "$HOME/.gitconfig"
+link_path "$repo_dir/githelpers" "$HOME/.githelpers"
+link_path "$repo_dir/gitignore" "$HOME/.gitignore"
+link_path "$repo_dir/psqlrc" "$HOME/.psqlrc"
+link_path "$zshrc_source" "$HOME/.zshrc"
+link_path "$repo_dir/bin" "$HOME/bin"
+install_herdr_config
+
+if [ "$install_tools" -eq 1 ]; then
+  install_herdr
+fi
+
+printf 'installed %s profile from %s\n' "$profile" "$repo_dir"

@@ -1,28 +1,38 @@
 # dotfiles
 
-This includes my configuration for homebrew, ZSH, git, terminal emulators and other stuff.
-
-## Requirements
-
-* git
-* make
+Jeff's Git, shell, terminal, and developer-tool configuration.
 
 ## Install
 
-To set up all of the files as symlinks in your home directory, just run this:
+Requirements: Git, Make, and curl. Clone the repository into the persistent
+home directory, then select the host profile:
 
-```
-make all
+```bash
+git clone https://github.com/jschilli/dotfiles.git ~/.dotfiles
+cd ~/.dotfiles
+make linux
 ```
 
-## Installing with homebrew
+`make linux` is intended for Linux development VMs. It installs a portable Zsh
+configuration, a Linux-safe Git configuration, Herdr, and the Claude Code and
+Codex Herdr integrations. It is idempotent and keeps an existing Herdr config.
 
-```
+On macOS:
+
+```bash
+make darwin
 brew bundle --file=~/.dotfiles/Brewfile
 ```
 
-and
+The installer refuses to replace regular files. Move an existing dotfile aside
+before the first run if it should be replaced by this repository.
 
+## Update
+
+```bash
+git -C ~/.dotfiles pull --ff-only
+make -C ~/.dotfiles linux
 ```
-brew bundle --force cleanup --file=~/.dotfiles/Brewfile
-```
+
+The repository and installed configuration survive VM rebuilds when the home
+directory is on a persistent volume.
