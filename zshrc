@@ -22,7 +22,6 @@ if [ -e ${private} ]; then
   . ${private}
 fi
 
-
 # Only load nvm for interactive shells (nvm is slow to initialize)
 if [[ -o interactive ]]; then
   export NVM_DIR="$HOME/.nvm"
@@ -58,7 +57,6 @@ if type brew &>/dev/null; then
   FPATH=/usr/local/share/zsh/site-functions:$FPATH
 fi
 
-
 # Speed up completion init, see: https://gist.github.com/ctechols/ca1035271ad134841284
 autoload -Uz compinit
 for dump in ~/.zcompdump(N.mh+24); do
@@ -71,7 +69,6 @@ compinit -C
 
 # source every .zsh file in this rep
 for config_file ($ZSH/**/*.zsh) source $config_file
-
 
 # unsetopt menucomplete
 unsetopt flowcontrol
@@ -88,7 +85,6 @@ zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
 
 # Emacs Keybindings
 bindkey -e
-
 
 #########
 # Aliases
@@ -152,7 +148,6 @@ alias lr='git l -30'
 alias cdr='cd $(git rev-parse --show-toplevel)' # cd to git Root
 alias hs='git rev-parse --short HEAD'
 alias hm='git log --format=%B -n 1 HEAD'
-
 
 # ceedee dot dot dot
 alias -g ...='../..'
@@ -220,7 +215,6 @@ spinner() {
   done
 }
 
-
 # Open PR on GitHub
 pr() {
   if type gh &> /dev/null; then
@@ -233,7 +227,6 @@ pr() {
 fpath=($ZSH/zsh/functions $fpath)
 
 autoload -U $ZSH/zsh/functions/*(:t)
-
 
 #########
 # PROMPT
@@ -348,7 +341,6 @@ if [[ -e "$HOME/code/clones/lua-language-server/3rd/luamake/luamake" ]]; then
   alias luamake="$HOME/code/clones/lua-language-server/3rd/luamake/luamake"
 fi
 
-
 # rustup
 export PATH="$HOME/.cargo/bin:$PATH"
 
@@ -358,7 +350,6 @@ export PATH="/opt/homebrew/opt/gnu-sed/libexec/gnubin:$PATH"
 
 # Only initialize interactive tools for interactive shells
 if [[ -o interactive ]]; then
-
 
   # direnv
   if type direnv &> /dev/null; then
@@ -398,8 +389,6 @@ if [[ -o interactive ]]; then
   fi
 fi
 
-export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
-
 # Export my personal ~/bin as last one to have highest precedence
 export PATH="$HOME/bin:$PATH"
 
@@ -407,12 +396,9 @@ export STARSHIP_CONFIG=~/.dotfiles/config/nerd-font-symbols.toml
 # This loads nvm bash_completion[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
 # Only initialize starship for interactive shells
-if [[ -o interactive ]]; then
+if [[ -o interactive && "$TERM" != dumb ]] && command -v starship >/dev/null 2>&1; then
   eval "$(starship init zsh)"
 fi
-export WASMTIME_HOME="$HOME/.wasmtime"
-
-export PATH="$WASMTIME_HOME/bin:$PATH"
 
 # pnpm
 export PNPM_HOME="/Users/jschilli/Library/pnpm"
@@ -424,13 +410,10 @@ esac
 
 plugins=( git z direnv)
 
-
-export PATH="$PATH:/Users/jschilli/Library/Warm/bin"
-
 export BAT_THEME="Coldark-Dark"
-. "$HOME/.local/bin/env"
+[ -f "$HOME/.local/bin/env" ] && . "$HOME/.local/bin/env"
 
-. "$HOME/.grit/bin/env"
+[ -f "$HOME/.grit/bin/env" ] && . "$HOME/.grit/bin/env"
 
 # bun completions
 [ -s "/Users/jschilli/.bun/_bun" ] && source "/Users/jschilli/.bun/_bun"
@@ -439,11 +422,11 @@ export BAT_THEME="Coldark-Dark"
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
-. "/Users/jschilli/.deno/env"
+if [[ "$TERM_PROGRAM" == "kiro" ]] && command -v kiro >/dev/null 2>&1; then
+  . "$(kiro --locate-shell-integration-path zsh)"
+fi
 
-[[ "$TERM_PROGRAM" == "kiro" ]] && . "$(kiro --locate-shell-integration-path zsh)"
-
-. "$HOME/.atuin/bin/env"
+[ -f "$HOME/.atuin/bin/env" ] && . "$HOME/.atuin/bin/env"
 
 # Added by LM Studio CLI (lms)
 export PATH="$PATH:/Users/jschilli/.lmstudio/bin"
@@ -456,11 +439,11 @@ compinit
 # End of Docker CLI completions
 export PYENV_ROOT="$HOME/.pyenv"
 export PATH="$PYENV_ROOT/bin:$PATH"
-eval "$(pyenv init -)"
+command -v pyenv >/dev/null 2>&1 && eval "$(pyenv init -)"
 
 # Added by Antigravity
 export PATH="/Users/jschilli/.antigravity/antigravity/bin:$PATH"
-export PATH="$PATH:/Users/jschilli/.local/bin"export PATH="$HOME/.local/bin:$PATH"
+export PATH="$HOME/.local/bin:$PATH"
 
 # >>> conda initialize >>>
 # !! Contents within this block are managed by 'conda init' !!
@@ -477,7 +460,71 @@ fi
 unset __conda_setup
 # <<< conda initialize <<<
 
-
 # Amp CLI
 export PATH="/Users/jschilli/.amp/bin:$PATH"
 
+# OpenClaw Completion
+[ -f "/Users/jschilli/.openclaw/completions/openclaw.zsh" ] && source "/Users/jschilli/.openclaw/completions/openclaw.zsh"
+
+# dcg: warn if hook was silently removed from Claude Code settings
+if command -v dcg &>/dev/null && command -v jq &>/dev/null; then
+  if [ -f "$HOME/.claude/settings.json" ] && \
+     ! jq -e '.hooks.PreToolUse[]? | select(.hooks[]?.command | test("dcg$"))' \
+       "$HOME/.claude/settings.json" &>/dev/null; then
+    printf '\033[1;33m[dcg] Hook missing from ~/.claude/settings.json — run: dcg install\033[0m\n'
+  fi
+fi
+export CARGO_TARGET_DIR="$HOME/.cargo-target/nightshift-rs"
+# Added by Antigravity CLI installer
+export PATH="/Users/jschilli/.local/bin:$PATH"
+#    export SSL_CERT_FILE="$HOME/aikido-root.pem"
+#    export REQUESTS_CA_BUNDLE="$HOME/aikido-root.pem"
+
+# Added by Antigravity IDE
+export PATH="/Users/jschilli/.antigravity-ide/antigravity-ide/bin:$PATH"
+[ -f "$HOME/.daytona.completion_script.zsh" ] && source "$HOME/.daytona.completion_script.zsh"
+# aikido-endpoint-npm-cafile-start
+# Allow npm/pnpm/yarn to trust the SafeChain MITM CA when a user-level cafile is set.
+export npm_config_cafile="/Library/Application Support/AikidoSecurity/EndpointProtection/run/endpoint-protection-npm-cafile.pem"
+# aikido-endpoint-npm-cafile-end
+# aikido-endpoint-pip-uv-legacy-start
+export UV_NATIVE_TLS=true
+# aikido-endpoint-pip-uv-legacy-end
+# aikido-endpoint-ruby-cert-config-start
+# Allow Ruby Bundler to trust the SafeChain MITM CA while preserving public roots.
+export BUNDLE_SSL_CA_CERT="/Library/Application Support/AikidoSecurity/EndpointProtection/run/endpoint-protection-ruby-combined-ca.pem"
+# aikido-endpoint-ruby-cert-config-end
+# aikido-endpoint-curl-cert-config-start
+# Allow curl and other OpenSSL-linked tools to trust the SafeChain MITM CA while preserving the system roots.
+export SSL_CERT_FILE="/Library/Application Support/AikidoSecurity/EndpointProtection/run/endpoint-protection-openssl-combined-ca.pem"
+export CURL_CA_BUNDLE="/Library/Application Support/AikidoSecurity/EndpointProtection/run/endpoint-protection-openssl-combined-ca.pem"
+# aikido-endpoint-curl-cert-config-end
+# aikido-ca stable-bundle override (managed by ~/.config/aikido-ca)
+# Point every TLS trust var at a stable bundle that accumulates ALL Aikido
+# proxy roots (survives root rotation), instead of Aikido's lagging run/ files.
+# Refreshed by LaunchAgent com.aikido-ca.refresh; rebuild manually via
+#   ~/.config/aikido-ca/refresh.sh
+if [ -r "$HOME/.config/aikido-ca/ca-bundle.pem" ]; then
+  export AIKIDO_CA_BUNDLE="$HOME/.config/aikido-ca/ca-bundle.pem"
+  export GIT_SSL_CAINFO="$AIKIDO_CA_BUNDLE"
+  export CURL_CA_BUNDLE="$AIKIDO_CA_BUNDLE"
+  export SSL_CERT_FILE="$AIKIDO_CA_BUNDLE"
+  export NODE_EXTRA_CA_CERTS="$AIKIDO_CA_BUNDLE"
+  export REQUESTS_CA_BUNDLE="$AIKIDO_CA_BUNDLE"
+  export PIP_CERT="$AIKIDO_CA_BUNDLE"
+  export POETRY_CERTIFICATES_PYPI_CERT="$AIKIDO_CA_BUNDLE"
+  export BUNDLE_SSL_CA_CERT="$AIKIDO_CA_BUNDLE"
+  export npm_config_cafile="$AIKIDO_CA_BUNDLE"
+fi
+# end aikido-ca stable-bundle override
+# aikido-endpoint-cert-config-start
+# Allow Node.js tooling to trust the SafeChain MITM CA while preserving public roots.
+export NODE_EXTRA_CA_CERTS="/Library/Application Support/AikidoSecurity/EndpointProtection/run/endpoint-protection-node-combined-ca.pem"
+# aikido-endpoint-cert-config-end
+# aikido-endpoint-pip-cert-config-start
+# Allow Python package managers to trust the SafeChain MITM CA while preserving user-provided roots.
+export PIP_CERT="/Library/Application Support/AikidoSecurity/EndpointProtection/run/endpoint-protection-pip-combined-ca.pem"
+export REQUESTS_CA_BUNDLE="/Library/Application Support/AikidoSecurity/EndpointProtection/run/endpoint-protection-pip-combined-ca.pem"
+export POETRY_CERTIFICATES_PYPI_CERT="/Library/Application Support/AikidoSecurity/EndpointProtection/run/endpoint-protection-pip-combined-ca.pem"
+export UV_SYSTEM_CERTS=true
+# aikido-endpoint-pip-cert-config-end

@@ -10,9 +10,7 @@ alias kvitest="ps -ef | grep vitest | awk '{print \$2}' | xargs kill -9"
 
 alias dev="cd ~/dev && code ."
 alias dotfiles="cd ~/.dotfiles && code ."
-alias warmhub="cd ~/dev/warmhub && cursor ."
-
-alias hl="cd /Users/jschilli/dev/agent-tools/humanlayer/humanlayer-wui && HUMANLAYER_DAEMON_SOCKET=~/.humanlayer/daemon-dev.sock bun run tauri dev"
 
 alias mp=open\ /Applications/Typora.app
-alias obsidian-sync='pushd "/Users/jschilli/Library/Mobile Documents/iCloud~md~obsidian/Documents/jschilli/jschili"; git add .; git commit -m "sync commit"; git pull origin main; git push origin head --no-verify; popd'
+# alias obsidian-sync='pushd "/$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/jschilli/jschili"; git add .; git commit -m "sync commit"; git pull origin main; git push origin head --no-verify; popd'
+alias qmd="qmd-node"
