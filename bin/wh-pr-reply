@@ -1,0 +1,152 @@
+#!/usr/bin/env bash
+# wh-pr-reply — reply to a GitHub PR inline review comment AND resolve the thread.
+#
+# Enforces the "always resolve open comment after pushing a fix" rule
+# (~/.claude/CLAUDE.md > PR Feedback) mechanically: a reply posted via this
+# helper cannot leave its thread unresolved unless --no-resolve is passed.
+#
+# Usage:
+#   wh-pr-reply <comment-id> -b "<body>"        [--repo owner/name] [--no-resolve]
+#   wh-pr-reply <comment-id> -F <path>          [--repo owner/name] [--no-resolve]
+#   wh-pr-reply <comment-id> --stdin            [--repo owner/name] [--no-resolve]
+#
+# <comment-id> is the numeric REST id of a review comment, e.g. 3314915009
+# (the digits at the end of https://github.com/.../pull/.../#discussion_r3314915009).
+#
+# Auto-detects the repo from the current git checkout via `gh repo view`;
+# override with --repo when working cross-repo or from outside a checkout.
+#
+# Exit codes:
+#   0  reply posted and thread resolved (or already resolved, or --no-resolve)
+#   1  reply posted but thread could not be resolved (left open; investigate)
+#   64 bad usage
+#   65 repo could not be auto-detected
+#   66 gh / jq missing
+
+set -euo pipefail
+
+usage() {
+  sed -n '2,/^set -euo/{/^set -euo/d;p;}' "$0" | sed 's/^# \{0,1\}//'
+  exit 64
+}
+
+require() {
+  command -v "$1" >/dev/null 2>&1 || {
+    echo "wh-pr-reply: missing dependency: $1" >&2
+    exit 66
+  }
+}
+
+require gh
+require jq
+
+[[ $# -lt 1 ]] && usage
+case "$1" in -h|--help) usage ;; esac
+
+COMMENT_ID="$1"; shift
+
+BODY=""
+BODY_SRC=""
+REPO=""
+RESOLVE=1
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -b)
+      [[ $# -lt 2 ]] && { echo "wh-pr-reply: -b requires a value" >&2; usage; }
+      BODY="$2"; BODY_SRC="arg"; shift 2 ;;
+    -F)
+      [[ $# -lt 2 ]] && { echo "wh-pr-reply: -F requires a path" >&2; usage; }
+      [[ -r "$2" ]] || { echo "wh-pr-reply: cannot read $2" >&2; exit 64; }
+      BODY="$(cat "$2")"; BODY_SRC="file:$2"; shift 2 ;;
+    --stdin)
+      BODY="$(cat)"; BODY_SRC="stdin"; shift ;;
+    --repo)
+      [[ $# -lt 2 ]] && { echo "wh-pr-reply: --repo requires owner/name" >&2; usage; }
+      REPO="$2"; shift 2 ;;
+    --no-resolve) RESOLVE=0; shift ;;
+    -h|--help) usage ;;
+    *) echo "wh-pr-reply: unknown arg: $1" >&2; usage ;;
+  esac
+done
+
+[[ -z "$BODY_SRC" ]] && { echo "wh-pr-reply: provide body via -b, -F, or --stdin" >&2; usage; }
+[[ -z "$BODY" ]]     && { echo "wh-pr-reply: body is empty" >&2; exit 64; }
+
+if [[ -z "$REPO" ]]; then
+  REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null) || {
+    echo "wh-pr-reply: could not auto-detect repo; pass --repo owner/name" >&2
+    exit 65
+  }
+fi
+OWNER="${REPO%/*}"
+NAME="${REPO#*/}"
+
+# Look up the PR number from the comment (REST exposes pull_request_url).
+PR_URL=$(gh api "repos/$REPO/pulls/comments/$COMMENT_ID" --jq '.pull_request_url')
+PR_NUM="${PR_URL##*/}"
+
+# Post the reply. `gh api` exits non-zero on HTTP error → set -e halts here.
+REPLY_URL=$(gh api "repos/$REPO/pulls/$PR_NUM/comments/$COMMENT_ID/replies" \
+  -X POST -f body="$BODY" --jq '.html_url')
+echo "Replied: $REPLY_URL"
+
+if [[ "$RESOLVE" -eq 0 ]]; then
+  echo "Skipping resolve (--no-resolve)."
+  exit 0
+fi
+
+# Find the GraphQL thread node-id whose comments contain our REST databaseId.
+# Most PRs have <100 threads; pages defensively.
+THREAD_ID=""
+ALREADY_RESOLVED=""
+CURSOR=""
+QUERY='
+query($owner: String!, $name: String!, $pr: Int!, $cursor: String) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $pr) {
+      reviewThreads(first: 100, after: $cursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          id
+          isResolved
+          comments(first: 50) { nodes { databaseId } }
+        }
+      }
+    }
+  }
+}'
+
+while :; do
+  ARGS=(-f query="$QUERY" -f owner="$OWNER" -f name="$NAME" -F pr="$PR_NUM")
+  [[ -n "$CURSOR" ]] && ARGS+=(-f cursor="$CURSOR")
+  RESPONSE=$(gh api graphql "${ARGS[@]}")
+
+  MATCH=$(echo "$RESPONSE" | jq -c --argjson id "$COMMENT_ID" '
+    .data.repository.pullRequest.reviewThreads.nodes
+    | map(select(.comments.nodes | any(.databaseId == $id)))
+    | first
+  ')
+  if [[ "$MATCH" != "null" && -n "$MATCH" ]]; then
+    THREAD_ID=$(echo "$MATCH" | jq -r '.id')
+    ALREADY_RESOLVED=$(echo "$MATCH" | jq -r '.isResolved')
+    break
+  fi
+
+  HAS_NEXT=$(echo "$RESPONSE" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage')
+  if [[ "$HAS_NEXT" != "true" ]]; then
+    echo "wh-pr-reply: WARNING — replied but could not find thread for comment $COMMENT_ID (left unresolved)" >&2
+    exit 1
+  fi
+  CURSOR=$(echo "$RESPONSE" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor')
+done
+
+if [[ "$ALREADY_RESOLVED" == "true" ]]; then
+  echo "Thread already resolved ($THREAD_ID)."
+  exit 0
+fi
+
+gh api graphql -f query='
+mutation($id: ID!) {
+  resolveReviewThread(input: {threadId: $id}) { thread { id isResolved } }
+}' -f id="$THREAD_ID" \
+  --jq '.data.resolveReviewThread.thread | "Resolved: \(.id) (isResolved=\(.isResolved))"'

@@ -46,6 +46,8 @@ bindkey '^[^N' newtab
 bindkey '^?' backward-delete-char
 bindkey -e
 
-# Disable flow control commands (keeps C-s from freezing everything)
-stty start undef
-stty stop undef
+# Disable flow control commands when a real TTY is attached.
+if [[ -t 0 ]]; then
+  stty start undef
+  stty stop undef
+fi

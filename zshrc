@@ -22,7 +22,6 @@ if [ -e ${private} ]; then
   . ${private}
 fi
 
-
 # Only load nvm for interactive shells (nvm is slow to initialize)
 if [[ -o interactive ]]; then
   export NVM_DIR="$HOME/.nvm"
@@ -58,7 +57,6 @@ if type brew &>/dev/null; then
   FPATH=/usr/local/share/zsh/site-functions:$FPATH
 fi
 
-
 # Speed up completion init, see: https://gist.github.com/ctechols/ca1035271ad134841284
 autoload -Uz compinit
 for dump in ~/.zcompdump(N.mh+24); do
@@ -71,7 +69,6 @@ compinit -C
 
 # source every .zsh file in this rep
 for config_file ($ZSH/**/*.zsh) source $config_file
-
 
 # unsetopt menucomplete
 unsetopt flowcontrol
@@ -88,7 +85,6 @@ zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
 
 # Emacs Keybindings
 bindkey -e
-
 
 #########
 # Aliases
@@ -152,7 +148,6 @@ alias lr='git l -30'
 alias cdr='cd $(git rev-parse --show-toplevel)' # cd to git Root
 alias hs='git rev-parse --short HEAD'
 alias hm='git log --format=%B -n 1 HEAD'
-
 
 # ceedee dot dot dot
 alias -g ...='../..'
@@ -220,7 +215,6 @@ spinner() {
   done
 }
 
-
 # Open PR on GitHub
 pr() {
   if type gh &> /dev/null; then
@@ -233,7 +227,6 @@ pr() {
 fpath=($ZSH/zsh/functions $fpath)
 
 autoload -U $ZSH/zsh/functions/*(:t)
-
 
 #########
 # PROMPT
@@ -348,7 +341,6 @@ if [[ -e "$HOME/code/clones/lua-language-server/3rd/luamake/luamake" ]]; then
   alias luamake="$HOME/code/clones/lua-language-server/3rd/luamake/luamake"
 fi
 
-
 # rustup
 export PATH="$HOME/.cargo/bin:$PATH"
 
@@ -358,7 +350,6 @@ export PATH="/opt/homebrew/opt/gnu-sed/libexec/gnubin:$PATH"
 
 # Only initialize interactive tools for interactive shells
 if [[ -o interactive ]]; then
-
 
   # direnv
   if type direnv &> /dev/null; then
@@ -398,8 +389,6 @@ if [[ -o interactive ]]; then
   fi
 fi
 
-export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
-
 # Export my personal ~/bin as last one to have highest precedence
 export PATH="$HOME/bin:$PATH"
 
@@ -407,12 +396,9 @@ export STARSHIP_CONFIG=~/.dotfiles/config/nerd-font-symbols.toml
 # This loads nvm bash_completion[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
 # Only initialize starship for interactive shells
-if [[ -o interactive ]]; then
+if [[ -o interactive && "$TERM" != dumb ]] && command -v starship >/dev/null 2>&1; then
   eval "$(starship init zsh)"
 fi
-export WASMTIME_HOME="$HOME/.wasmtime"
-
-export PATH="$WASMTIME_HOME/bin:$PATH"
 
 # pnpm
 export PNPM_HOME="/Users/jschilli/Library/pnpm"
@@ -424,13 +410,10 @@ esac
 
 plugins=( git z direnv)
 
-
-export PATH="$PATH:/Users/jschilli/Library/Warm/bin"
-
 export BAT_THEME="Coldark-Dark"
-. "$HOME/.local/bin/env"
+[ -f "$HOME/.local/bin/env" ] && . "$HOME/.local/bin/env"
 
-. "$HOME/.grit/bin/env"
+[ -f "$HOME/.grit/bin/env" ] && . "$HOME/.grit/bin/env"
 
 # bun completions
 [ -s "/Users/jschilli/.bun/_bun" ] && source "/Users/jschilli/.bun/_bun"
@@ -439,45 +422,11 @@ export BAT_THEME="Coldark-Dark"
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
-. "/Users/jschilli/.deno/env"
-
-[[ "$TERM_PROGRAM" == "kiro" ]] && . "$(kiro --locate-shell-integration-path zsh)"
-
-. "$HOME/.atuin/bin/env"
-
-# Added by LM Studio CLI (lms)
-export PATH="$PATH:/Users/jschilli/.lmstudio/bin"
-# End of LM Studio CLI section
-
-# The following lines have been added by Docker Desktop to enable Docker CLI completions.
-fpath=(/Users/jschilli/.docker/completions $fpath)
-autoload -Uz compinit
-compinit
-# End of Docker CLI completions
-export PYENV_ROOT="$HOME/.pyenv"
-export PATH="$PYENV_ROOT/bin:$PATH"
-eval "$(pyenv init -)"
-
-# Added by Antigravity
-export PATH="/Users/jschilli/.antigravity/antigravity/bin:$PATH"
-export PATH="$PATH:/Users/jschilli/.local/bin"export PATH="$HOME/.local/bin:$PATH"
-
-# >>> conda initialize >>>
-# !! Contents within this block are managed by 'conda init' !!
-__conda_setup="$('/Users/jschilli/anaconda3/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
-if [ $? -eq 0 ]; then
-    eval "$__conda_setup"
-else
-    if [ -f "/Users/jschilli/anaconda3/etc/profile.d/conda.sh" ]; then
-        . "/Users/jschilli/anaconda3/etc/profile.d/conda.sh"
-    else
-        export PATH="/Users/jschilli/anaconda3/bin:$PATH"
-    fi
+if [[ "$TERM_PROGRAM" == "kiro" ]] && command -v kiro >/dev/null 2>&1; then
+  . "$(kiro --locate-shell-integration-path zsh)"
 fi
-unset __conda_setup
-# <<< conda initialize <<<
 
+[ -f "$HOME/.atuin/bin/env" ] && . "$HOME/.atuin/bin/env"
 
-# Amp CLI
-export PATH="/Users/jschilli/.amp/bin:$PATH"
-
+[ -f "$ZSH/env-vars/managed-tools.Darwin.sh" ] &&
+  source "$ZSH/env-vars/managed-tools.Darwin.sh"
