@@ -1,1 +1,0 @@
-alias jl="jira issue list -a$(jira me) -R Unresolved --plain"
