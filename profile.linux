@@ -1,0 +1,18 @@
+# shellcheck shell=sh
+# Portable login-shell environment for Linux development VMs.
+
+export BUN_INSTALL="$HOME/.bun"
+
+path_prepend() {
+  case ":$PATH:" in
+    *":$1:"*) ;;
+    *) PATH="$1:$PATH" ;;
+  esac
+}
+
+path_prepend "$HOME/.cargo/bin"
+path_prepend "$HOME/bin"
+path_prepend "$BUN_INSTALL/bin"
+path_prepend "$HOME/.local/bin"
+export PATH
+unset -f path_prepend 2>/dev/null || unset path_prepend

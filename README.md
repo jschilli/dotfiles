@@ -14,8 +14,9 @@ make linux
 ```
 
 `make linux` is intended for Linux development VMs. It installs a portable Zsh
-configuration, a Linux-safe Git configuration, Herdr, and the Claude Code and
-Codex Herdr integrations. It is idempotent and keeps an existing Herdr config.
+and login-shell environment, a Linux-safe Git configuration, Herdr, and the
+Claude Code and Codex Herdr integrations. It is idempotent and keeps an existing
+Herdr config.
 
 On macOS:
 
@@ -24,8 +25,11 @@ make darwin
 brew bundle --file=~/.dotfiles/Brewfile
 ```
 
-The installer refuses to replace regular files. Move an existing dotfile aside
-before the first run if it should be replaced by this repository.
+The macOS installer keeps `~/.zshrc` as a regular local wrapper and adds one
+source line for the tracked configuration. This lets endpoint-managed shell
+settings remain local instead of writing through a symlink into the repository.
+Other managed dotfiles refuse to replace existing regular files or unrelated
+symlinks.
 
 ## Update
 
