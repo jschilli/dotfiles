@@ -47,7 +47,6 @@ portable_fragments=(
   "$ZSH/agents/agents.zsh"
   "$ZSH/claude/claude.zsh"
   "$ZSH/node/aliases.zsh"
-  "$ZSH/postgres/aliases.zsh"
   "$ZSH/rust-aliases.zsh"
   "$ZSH/tmux/aliases.zsh"
 )
