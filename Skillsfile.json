@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "runtime": {
+    "canonicalRoot": "~/.agents/skills",
+    "projectionAgent": "claude-code",
+    "projectionRoot": "~/.claude/skills"
+  },
+  "sources": [
+    {
+      "bucket": "warmhub-marketplace",
+      "repository": "warmautomation/warmhub-claude-marketplace",
+      "skills": [
+        "analyze-friction",
+        "analyze-third-party-tool",
+        "apply-brand",
+        "apply-learnings",
+        "capture-learnings",
+        "cli-demo",
+        "create-plan",
+        "dogfood-cli",
+        "forge-codebase-research",
+        "forge-design-discussion",
+        "forge-drive",
+        "forge-implementation-plan",
+        "forge-mockup",
+        "forge-pr-description",
+        "forge-prd",
+        "forge-research-questions",
+        "forge-structure-outline",
+        "forge-tdd",
+        "implement-plan",
+        "iterate-plan",
+        "report-friction",
+        "root-cause-analysis",
+        "simplifier",
+        "subjective-logic"
+      ]
+    },
+    {
+      "bucket": "personal",
+      "repository": "jschilli/agent-skills",
+      "skills": [
+        "analyze-is-skill-necessary",
+        "delegate-to-sub-frontier"
+      ]
+    },
+    {
+      "bucket": "public",
+      "repository": "anthropics/skills",
+      "skills": ["skill-creator"]
+    },
+    {
+      "bucket": "public",
+      "repository": "crafter-station/skills",
+      "skills": ["skillkit"]
+    },
+    {
+      "bucket": "public",
+      "repository": "gnurio/tufte-vdqi-plugin",
+      "skills": ["orchestrate-tufte-vdqi"]
+    },
+    {
+      "bucket": "public",
+      "repository": "humanlayer/skills",
+      "skills": ["build-iterated-agentic-loop"]
+    },
+    {
+      "bucket": "public",
+      "repository": "mattpocock/skills",
+      "skills": [
+        "code-review",
+        "codebase-design",
+        "domain-modeling",
+        "grill-with-docs",
+        "grilling",
+        "handoff",
+        "implement",
+        "prototype",
+        "setup-matt-pocock-skills",
+        "tdd",
+        "triage"
+      ]
+    },
+    {
+      "bucket": "public",
+      "repository": "ogulcancelik/herdr",
+      "skills": ["herdr"]
+    },
+    {
+      "bucket": "public",
+      "repository": "openai/skills",
+      "skills": ["security-best-practices"]
+    },
+    {
+      "bucket": "public",
+      "repository": "shadcn/improve",
+      "skills": ["improve"]
+    },
+    {
+      "bucket": "public",
+      "repository": "trailofbits/skills",
+      "skills": ["differential-review"]
+    },
+    {
+      "bucket": "public",
+      "repository": "warmhub-labs/warmhub-autoresearch-skills",
+      "skills": ["warmhub-autoresearch"]
+    },
+    {
+      "bucket": "public",
+      "repository": "warmhub/agent-vent",
+      "skills": ["vent"]
+    }
+  ]
+}

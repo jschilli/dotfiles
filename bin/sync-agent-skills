@@ -1,0 +1,52 @@
+#!/bin/bash
+set -euo pipefail
+
+DOTFILES_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+MANIFEST="${AGENT_SKILLS_MANIFEST:-$DOTFILES_ROOT/Skillsfile.json}"
+
+usage() {
+  cat <<'USAGE'
+Usage: sync-agent-skills [--dry-run|--apply]
+
+Installs the source-controlled skill selections in Skillsfile.json with the
+standard `npx skills` installer. Global installs target Claude Code, which puts
+the canonical copy in ~/.agents/skills and creates the Claude projection as a
+symlink. This command does not remove or quarantine any existing skill.
+USAGE
+}
+
+mode="dry-run"
+case "${1:-}" in
+  ""|--dry-run) ;;
+  --apply) mode="apply" ;;
+  --help|-h) usage; exit 0 ;;
+  *) usage >&2; exit 2 ;;
+esac
+
+command -v jq >/dev/null || { echo "sync-agent-skills: jq is required" >&2; exit 1; }
+command -v npx >/dev/null || { echo "sync-agent-skills: npx is required" >&2; exit 1; }
+test -f "$MANIFEST" || { echo "sync-agent-skills: missing manifest: $MANIFEST" >&2; exit 1; }
+
+jq -e '
+  .schemaVersion == 1
+  and .runtime.canonicalRoot == "~/.agents/skills"
+  and .runtime.projectionAgent == "claude-code"
+  and (.sources | type == "array" and length > 0)
+  and all(.sources[]; (.repository | type == "string" and length > 0) and (.skills | type == "array" and length > 0))
+' "$MANIFEST" >/dev/null || {
+  echo "sync-agent-skills: invalid manifest" >&2
+  exit 1
+}
+
+while IFS=$'\t' read -r repository encoded_skills; do
+  IFS=$'\037' read -r -a skills <<< "$encoded_skills"
+  command=(npx --yes skills add "$repository" --global --agent claude-code --yes --skill "${skills[@]}")
+
+  if [ "$mode" = "dry-run" ]; then
+    printf 'Would run: '
+    printf '%q ' "${command[@]}"
+    printf '\n'
+  else
+    "${command[@]}"
+  fi
+done < <(jq -r '.sources[] | [.repository, (.skills | join("\u001f"))] | @tsv' "$MANIFEST")
