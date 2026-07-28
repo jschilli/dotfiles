@@ -33,31 +33,19 @@
         "report-friction",
         "root-cause-analysis",
         "simplifier",
-        "subjective-logic"
+        "subjective-logic",
+        "delegate-to-sub-frontier"
       ]
     },
     {
       "bucket": "personal",
       "repository": "jschilli/agent-skills",
-      "skills": [
-        "analyze-is-skill-necessary",
-        "delegate-to-sub-frontier"
-      ]
+      "skills": ["analyze-is-skill-necessary"]
     },
     {
       "bucket": "public",
       "repository": "anthropics/skills",
       "skills": ["skill-creator"]
-    },
-    {
-      "bucket": "public",
-      "repository": "crafter-station/skills",
-      "skills": ["skillkit"]
-    },
-    {
-      "bucket": "public",
-      "repository": "gnurio/tufte-vdqi-plugin",
-      "skills": ["orchestrate-tufte-vdqi"]
     },
     {
       "bucket": "public",
