@@ -47,6 +47,6 @@ while IFS=$'\t' read -r repository encoded_skills; do
     printf '%q ' "${command[@]}"
     printf '\n'
   else
-    "${command[@]}"
+    "${command[@]}" </dev/null
   fi
 done < <(jq -r '.sources[] | [.repository, (.skills | join("\u001f"))] | @tsv' "$MANIFEST")
