@@ -9,9 +9,9 @@ usage() {
 Usage: sync-agent-skills [--dry-run|--apply]
 
 Installs the source-controlled skill selections in Skillsfile.json with the
-standard `npx skills` installer. Global installs target Claude Code, which puts
-the canonical copy in ~/.agents/skills and creates the Claude projection as a
-symlink. This command does not remove or quarantine any existing skill.
+standard `npx skills` installer. Global installs target the generic ~/.agents
+root plus Claude Code, making ~/.agents/skills canonical and Claude a symlink
+projection. This command does not remove or quarantine any existing skill.
 USAGE
 }
 
@@ -30,6 +30,7 @@ test -f "$MANIFEST" || { echo "sync-agent-skills: missing manifest: $MANIFEST" >
 jq -e '
   .schemaVersion == 1
   and .runtime.canonicalRoot == "~/.agents/skills"
+  and .runtime.canonicalAgent == "cline"
   and .runtime.projectionAgent == "claude-code"
   and (.sources | type == "array" and length > 0)
   and all(.sources[]; (.repository | type == "string" and length > 0) and (.skills | type == "array" and length > 0))
@@ -40,7 +41,7 @@ jq -e '
 
 while IFS=$'\t' read -r repository encoded_skills; do
   IFS=$'\037' read -r -a skills <<< "$encoded_skills"
-  command=(npx --yes skills add "$repository" --global --agent claude-code --yes --skill "${skills[@]}")
+  command=(npx --yes skills add "$repository" --global --agent cline claude-code --yes --skill "${skills[@]}")
 
   if [ "$mode" = "dry-run" ]; then
     printf 'Would run: '

@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "runtime": {
     "canonicalRoot": "~/.agents/skills",
+    "canonicalAgent": "cline",
     "projectionAgent": "claude-code",
     "projectionRoot": "~/.claude/skills"
   },
