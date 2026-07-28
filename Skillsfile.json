@@ -82,6 +82,11 @@
     },
     {
       "bucket": "public",
+      "repository": "steipete/oracle",
+      "skills": ["oracle"]
+    },
+    {
+      "bucket": "public",
       "repository": "shadcn/improve",
       "skills": ["improve"]
     },
