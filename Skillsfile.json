@@ -72,6 +72,13 @@
     },
     {
       "bucket": "public",
+      "repository": "nicobailon/grill-for-unknowns",
+      "skills": [
+        "grill-for-unknowns"
+      ]
+    },
+    {
+      "bucket": "public",
       "repository": "ogulcancelik/herdr",
       "skills": ["herdr"]
     },
