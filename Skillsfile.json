@@ -50,6 +50,13 @@
     },
     {
       "bucket": "public",
+      "repository": "crafter-station/skill-kit",
+      "skills": [
+        "skillkit"
+      ]
+    },
+    {
+      "bucket": "public",
       "repository": "humanlayer/skills",
       "skills": ["build-iterated-agentic-loop"]
     },
