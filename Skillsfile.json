@@ -42,7 +42,10 @@
     {
       "bucket": "personal",
       "repository": "jschilli/agent-skills",
-      "skills": ["analyze-is-skill-necessary"]
+      "skills": [
+        "analyze-is-skill-necessary",
+        "create-third-party-harvest"
+      ]
     },
     {
       "bucket": "public",
