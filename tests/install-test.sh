@@ -53,19 +53,40 @@ if command -v zsh >/dev/null 2>&1; then
     [[ "$path[6]" == "/usr/local/sbin" ]]
   '
   HOME=$test_home ZDOTDIR=$test_home TERM=xterm-256color zsh -lic '
-    alias cxa >/dev/null
-    alias tl >/dev/null
+    set -e
+    [[ -n "$aliases[cxa]" ]]
+    [[ -n "$aliases[tl]" ]]
+    [[ "$aliases[ll]" == "ls -l" ]]
+    [[ "$aliases[kp]" == "ps auxwww" ]]
+    [[ "$aliases[gaa]" == "git add -A" ]]
+    [[ "$aliases[r]" == "cargo run" ]]
+    [[ "$galiases[...]" == "../.." ]]
+    (( $+functions[ipnpm] ))
+    (( $+functions[irun] ))
+  '
+  HOME=$test_home PATH=/usr/bin:/bin zsh -dfc '
+    source "$HOME/.dotfiles/zsh.d/aliases.shared.zsh"
+    ! alias cat >/dev/null 2>&1
   '
 fi
 
 ln -s "$repo_dir" "$darwin_home/.dotfiles"
-printf 'endpoint-managed content\n' >"$darwin_home/.zshrc"
+printf '# endpoint-managed content\n' >"$darwin_home/.zshrc"
 HOME=$darwin_home "$repo_dir/install" --profile darwin --without-tools
 HOME=$darwin_home "$repo_dir/install" --profile darwin --without-tools
 [ ! -L "$darwin_home/.zshrc" ]
-grep -Fqx 'endpoint-managed content' "$darwin_home/.zshrc"
+grep -Fqx '# endpoint-managed content' "$darwin_home/.zshrc"
 # shellcheck disable=SC2016
 darwin_source_count=$(grep -Fxc '. "$HOME/.dotfiles/zshrc"' "$darwin_home/.zshrc")
 [ "$darwin_source_count" -eq 1 ]
+
+if command -v zsh >/dev/null 2>&1; then
+  HOME=$darwin_home ZDOTDIR=$darwin_home TERM=xterm-256color zsh -lic '
+    set -e
+    [[ "$aliases[lh]" == "ls -G -lh" ]]
+    [[ "$aliases[lls]" == "ls -lhSr" ]]
+    [[ -n "$aliases[zedn]" ]]
+  '
+fi
 
 printf 'dotfiles installer tests passed\n'

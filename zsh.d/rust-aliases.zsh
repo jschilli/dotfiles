@@ -5,6 +5,8 @@ alias ct="cargo test"
 
 alias cr="cargo run"
 alias crr="cargo run --release"
+alias r="cargo run"
+alias rr="cargo run --release"
 
 alias cba="cargo build --all"
 

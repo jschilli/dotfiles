@@ -1,4 +1,3 @@
-alias get_idf='. $HOME/esp/esp-idf/export.sh'
 alias hjs="pbpaste | highlight --syntax=js --font-size 24 --font Inconsolata --style molokai  -O rtf | pbcopy"
 
 alias pgserver='function pgsql_server() { case $1 in "start") echo "Trying to start PostgreSQL..."; pg_ctl -D /usr/local/var/postgres -l /usr/local/var/postgres/server.log start ;; "stop") echo "Trying to stop PostgreSQL..."; pg_ctl -D /usr/local/var/postgres stop -s -m fast ;; esac }; pgsql_server'
@@ -13,4 +12,3 @@ alias dotfiles="cd ~/.dotfiles && code ."
 
 alias mp=open\ /Applications/Typora.app
 # alias obsidian-sync='pushd "/$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/jschilli/jschili"; git add .; git commit -m "sync commit"; git pull origin main; git push origin head --no-verify; popd'
-alias qmd="qmd-node"

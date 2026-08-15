@@ -1,0 +1,23 @@
+alias bear='clear && echo "Clear as a bear!"'
+alias history='history 1'
+alias rsyncssh='rsync -Pr --rsh=ssh'
+alias ez='vim ~/.zshrc'
+alias sz='source ~/.zshrc'
+alias kp='ps auxwww'
+alias l='ls -lAh'
+alias la='ls -A'
+alias llt='ls -lrt'
+
+alias -g ...='../..'
+alias -g ....='../../..'
+alias -g .....='../../../..'
+alias -g withcolors="| sed -e \$'/PASS/s//\\e[32mPASS\\e[0m/' -e \$'/FAIL/s//\\e[31mFAIL\\e[0m/'"
+
+command -v bat >/dev/null 2>&1 && alias cat='bat'
+command -v adb >/dev/null 2>&1 && alias crd='adb forward tcp:9222 localabstract:chrome_devtools_remote'
+command -v be >/dev/null 2>&1 && alias bup='be rake clean && be rackup'
+command -v bundle >/dev/null 2>&1 && alias brt='bundle exec rake test'
+command -v nvim >/dev/null 2>&1 && alias n='nvim +Notes'
+command -v go >/dev/null 2>&1 && alias got='go test ./...'
+command -v qmd-node >/dev/null 2>&1 && alias qmd='qmd-node'
+[[ -r "$HOME/esp/esp-idf/export.sh" ]] && alias get_idf='. $HOME/esp/esp-idf/export.sh'

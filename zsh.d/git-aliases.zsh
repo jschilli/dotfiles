@@ -18,6 +18,28 @@ alias gdp='git checkout develop && git pull'
 alias gdrb='gdbranch.sh'
 alias grbl="git for-each-ref --sort=-committerdate --format='%(authorname) %(refname)' refs/remotes/origin"
 alias gcnt="git log --oneline main.."
+alias gaa='git add -A'
+alias gcm='git checkout main'
+alias gdc='git diff --cached'
+alias co='git checkout'
+alias up='git push'
+alias upf='git push --force'
+alias pu='git pull'
+alias pur='git pull --rebase'
+alias fe='git fetch'
+alias re='git rebase'
+alias lr='git l -30'
+alias cdr='cd $(git rev-parse --show-toplevel)'
+alias hs='git rev-parse --short HEAD'
+alias hm='git log --format=%B -n 1 HEAD'
+
+fo() {
+  git branch --no-color --sort=-committerdate --format='%(refname:short)' | fzf --header 'git checkout' | xargs git checkout
+}
+
+po() {
+  gh pr list --author "@me" | fzf --header 'checkout PR' | awk '{print $(NF-5)}' | xargs git checkout
+}
 
 # gsync: status → pull → recent log, in one. Replaces the gs+gl+glog triple
 # (the most common 3-step git workflow per atuin history, ~136 pairs/month).

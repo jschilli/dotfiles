@@ -16,20 +16,23 @@ unload_started=0
 service_reloaded=0
 handling_exit=0
 update_pid=""
+original_agentsview_bin=""
+plist_binary_replaced=0
 
 usage() {
   cat <<'EOF'
 Usage: agentsview-update-launchd [--force] [--no-wait] [--timeout SECONDS]
 
-Update the exact AgentsView binary owned by a loaded macOS LaunchAgent. The
-command prevents concurrent updates and duplicate `agentsview serve` writers,
-unloads launchd, updates and verifies its binary, reloads launchd, then checks
-the running executable and /api/v1/version response.
+Update the shell-resolved AgentsView binary and reconcile the loaded macOS
+LaunchAgent to it. The command prevents concurrent updates and duplicate
+`agentsview serve` writers, unloads launchd, updates and verifies its binary,
+reloads launchd, then checks the running executable and /api/v1/version response.
 
 Options:
   --force            Ignore the AgentsView update-check cache.
   --no-wait          Return after launchd starts the verified executable.
-  --timeout SECONDS  Readiness timeout (default: 7200).
+  --timeout SECONDS  Stall timeout (default: 7200). Reported startup progress resets
+                     it, so a multi-hour full resync does not trip it.
   -h, --help         Show this help.
 EOF
 }
@@ -90,8 +93,33 @@ bootstrap_service() {
   return 1
 }
 
+wait_for_service_stop() {
+  local deadline=$(( SECONDS + lifecycle_timeout ))
+
+  while launchctl print "$target" >/dev/null 2>&1; do
+    (( SECONDS <= deadline )) || return 1
+    sleep 1
+  done
+  while [[ -n "$(serve_pids)" ]]; do
+    (( SECONDS <= deadline )) || return 1
+    sleep 1
+  done
+}
+
 restore_service_registration() {
-  if (( unload_started && ! service_reloaded )); then
+  if (( unload_started )); then
+    if (( service_reloaded )); then
+      print -u2 -- "Stopping replacement $label before restoring the prior service."
+      if ! launchctl bootout "$target" && launchctl print "$target" >/dev/null 2>&1; then
+        print -u2 -- "CRITICAL: could not stop replacement $label."
+        return 1
+      fi
+      service_reloaded=0
+      if ! wait_for_service_stop; then
+        print -u2 -- "CRITICAL: replacement $label did not stop before restoration."
+        return 1
+      fi
+    fi
     if launchctl print "$target" >/dev/null 2>&1; then
       return 0
     fi
@@ -112,6 +140,27 @@ restore_service_registration() {
   fi
 }
 
+# `plutil -replace ProgramArguments.0` INSERTS at index 0 instead of replacing it,
+# so it grows the argv array on every call. Remove then insert to actually replace.
+set_plist_program() {
+  local new_bin=$1
+
+  plutil -remove ProgramArguments.0 "$plist" || return 1
+  plutil -insert ProgramArguments.0 -string "$new_bin" "$plist" || return 1
+}
+
+restore_plist_executable() {
+  (( plist_binary_replaced )) || return 0
+
+  print -u2 -- "Restoring $plist to $original_agentsview_bin."
+  set_plist_program "$original_agentsview_bin" || {
+    print -u2 -- "CRITICAL: could not restore ProgramArguments[0] in $plist."
+    return 1
+  }
+  agentsview_bin="$original_agentsview_bin"
+  plist_binary_replaced=0
+}
+
 finish() {
   local exit_code=$1
 
@@ -124,9 +173,11 @@ finish() {
     wait "$update_pid" 2>/dev/null || true
   fi
   if (( exit_code != 0 )); then
+    restore_plist_executable || true
     restore_service_registration || true
   fi
   if (( lock_acquired )); then
+    rm -f "$lock_dir/pid" 2>/dev/null || true
     rmdir "$lock_dir" 2>/dev/null || true
   fi
   exit "$exit_code"
@@ -146,6 +197,13 @@ verify_loaded_binary() {
     "launchd loaded unexpected executable: ${loaded_bin:-unknown}"
   [[ -n "$loaded_inode" && "$loaded_inode" == "$disk_inode" ]] || die \
     "launchd is running a stale inode for $agentsview_bin"
+}
+
+daemon_phase() {
+  local out
+
+  out=$("$agentsview_bin" daemon status 2>/dev/null) || return 0
+  print -r -- "$out" | sed -n 's/^[[:space:]]*phase:[[:space:]]*//p' | head -n 1
 }
 
 listener_ports() {
@@ -217,18 +275,43 @@ done
 [[ -f "$plist" ]] || die "plist not found: $plist"
 plutil -lint "$plist" >/dev/null || die "invalid plist: $plist"
 
-agentsview_bin=$(plutil -extract ProgramArguments.0 raw -o - "$plist")
-[[ -x "$agentsview_bin" ]] || die "plist executable is not runnable: $agentsview_bin"
-[[ ! -L "$agentsview_bin" ]] || die "plist executable must not be a symlink: $agentsview_bin"
+mkdir -p "${lock_dir:h}"
+# Record the owner. A bare lock directory cannot be told apart from an abandoned one,
+# so a reader has to guess -- and clearing a live lock starts a second concurrent update.
+if ! mkdir "$lock_dir" 2>/dev/null; then
+  lock_owner=$(cat "$lock_dir/pid" 2>/dev/null || true)
+  if [[ -n "$lock_owner" ]] && kill -0 "$lock_owner" 2>/dev/null; then
+    die "another $label update is already running (PID $lock_owner)"
+  fi
+  print -u2 -- "Reclaiming abandoned lock at $lock_dir${lock_owner:+ (dead PID $lock_owner)}."
+  rm -f "$lock_dir/pid"
+  rmdir "$lock_dir" 2>/dev/null || true
+  mkdir "$lock_dir" 2>/dev/null || die "another $label update is already running"
+fi
+lock_acquired=1
+print -r -- "$$" > "$lock_dir/pid"
 
+configured_agentsview_bin=$(plutil -extract ProgramArguments.0 raw -o - "$plist")
 interactive_bin=$(command -v agentsview 2>/dev/null || true)
 [[ -n "$interactive_bin" ]] || die "agentsview is not on PATH"
-[[ "${interactive_bin:A}" == "${agentsview_bin:A}" ]] || die \
-  "plist and shell use different binaries; set ProgramArguments[0] to ${interactive_bin:A} and reload launchd"
+agentsview_bin="${interactive_bin:A}"
+[[ -x "$agentsview_bin" ]] || die "shell executable is not runnable: $agentsview_bin"
+[[ ! -L "$agentsview_bin" ]] || die "shell executable must not be a symlink: $agentsview_bin"
+# An interpreter shim (conda/pip console script) starts a python process, so launchd
+# never runs the shim itself and the binary check below can never pass. Refuse it here,
+# before the service is unloaded.
+[[ "$(head -c 2 "$agentsview_bin")" != '#!' ]] || die \
+  "shell executable is an interpreter script, not a native binary: $agentsview_bin
+  put the standalone agentsview binary earlier on PATH, then retry"
 
-mkdir -p "${lock_dir:h}"
-mkdir "$lock_dir" 2>/dev/null || die "another $label update is already running"
-lock_acquired=1
+if [[ "${configured_agentsview_bin:A}" != "$agentsview_bin" ]]; then
+  original_agentsview_bin="$configured_agentsview_bin"
+  print -- "Repointing $plist to $agentsview_bin."
+  set_plist_program "$agentsview_bin" ||
+    die "could not set ProgramArguments[0] in $plist"
+  plist_binary_replaced=1
+  plutil -lint "$plist" >/dev/null || die "plist became invalid after reconciliation: $plist"
+fi
 
 initial_pid=$(launchd_pid)
 [[ -n "$initial_pid" ]] || die "$target is not running; refusing to change its stopped state"
@@ -241,18 +324,7 @@ if ! launchctl bootout "$target" && launchctl print "$target" >/dev/null 2>&1; t
   die "could not unload $target"
 fi
 
-deadline=$(( SECONDS + lifecycle_timeout ))
-while launchctl print "$target" >/dev/null 2>&1; do
-  (( SECONDS <= deadline )) || die "launchd did not unload $target within ${lifecycle_timeout}s"
-  sleep 1
-done
-while [[ -n "$(serve_pids)" ]]; do
-  (( SECONDS <= deadline )) || {
-    describe_serve_pids >&2
-    die "AgentsView did not exit within ${lifecycle_timeout}s"
-  }
-  sleep 1
-done
+wait_for_service_stop || die "AgentsView did not stop within ${lifecycle_timeout}s"
 
 update_args=(update --yes)
 (( force_update )) && update_args+=(--force)
@@ -274,7 +346,6 @@ assert_no_serves
 print -- "Reloading $target ($after_version)..."
 bootstrap_service || die "could not bootstrap $target"
 service_reloaded=1
-unload_started=0
 
 deadline=$(( SECONDS + ready_timeout ))
 service_pid=""
@@ -290,6 +361,7 @@ verify_loaded_binary "$service_pid"
 if (( wait_for_ready )); then
   print -- "Waiting for AgentsView readiness (PID $service_pid)..."
   last_report=$SECONDS
+  last_phase=""
   while (( SECONDS <= deadline )); do
     current_pid=$(launchd_pid)
     if [[ -z "$current_pid" ]] || ! kill -0 "$current_pid" 2>/dev/null; then
@@ -305,6 +377,14 @@ if (( wait_for_ready )); then
       print -- "Ready: $after_version (PID $service_pid, $agentsview_bin)"
       exit 0
     fi
+    # A data-version bump forces a full resync, which runs for hours on a large
+    # database. Startup that still reports a changing phase works; it is not stuck.
+    # Give it a fresh window so honest progress cannot trip the timeout.
+    phase=$(daemon_phase)
+    if [[ -n "$phase" && "$phase" != "$last_phase" ]]; then
+      last_phase="$phase"
+      deadline=$(( SECONDS + ready_timeout ))
+    fi
     if (( SECONDS - last_report >= 15 )); then
       "$agentsview_bin" daemon status || true
       last_report=$SECONDS
@@ -312,6 +392,18 @@ if (( wait_for_ready )); then
     sleep 2
   done
   "$agentsview_bin" daemon status || true
+  # Never tear down a live daemon that runs the verified new binary. The update already
+  # landed on disk, so there is no earlier version to restore. A rollback here only
+  # discards the startup work and makes the next attempt repeat all of it.
+  service_pid=$(launchd_pid)
+  if [[ -n "$service_pid" ]] && kill -0 "$service_pid" 2>/dev/null; then
+    verify_loaded_binary "$service_pid"
+    unload_started=0
+    service_reloaded=0
+    plist_binary_replaced=0
+    die "AgentsView made no startup progress for ${ready_timeout}s and does not serve \
+$expected_version yet; leaving PID $service_pid running"
+  fi
   die "AgentsView did not serve version $expected_version within ${ready_timeout}s"
 fi
 

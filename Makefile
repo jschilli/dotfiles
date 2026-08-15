@@ -11,3 +11,4 @@ linux:
 
 test:
 	./tests/install-test.sh
+	zsh ./tests/agentsview-update-launchd-test.zsh

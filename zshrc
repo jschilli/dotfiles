@@ -92,79 +92,17 @@ bindkey -e
 
 case $OSTYPE in
   linux*)
-    local aliasfile="${HOME}/.zsh.d/aliases.Linux.sh"
+    local aliasfile="$ZSH/aliases.Linux.sh"
     [[ -e ${aliasfile} ]] && source ${aliasfile}
   ;;
   darwin*)
-    local aliasfile="${HOME}/.zsh.d/aliases.Darwin.sh"
+    local aliasfile="$ZSH/aliases.Darwin.sh"
     [[ -e ${aliasfile} ]] && source ${aliasfile}
   ;;
 esac
 
-if type lsd &> /dev/null; then
-  alias ls=eza --icons --git
-fi
-alias lls='ls -lh --sort=size --reverse'
-alias llt='ls -lrt'
-alias bear='clear && echo "Clear as a bear!"'
-alias cat='bat'
 # alias find='fd'
 # alias grep='rg'
-
-alias history='history 1'
-alias hs='history | grep '
-
-# Use rsync with ssh and show progress
-alias rsyncssh='rsync -Pr --rsh=ssh'
-
-# Edit/Source vim config
-alias ez='vim ~/.zshrc'
-alias sz='source ~/.zshrc'
-
-# git
-alias gs='git status -sb'
-alias gaa='git add -A'
-alias gc='git commit'
-alias gcm='git checkout main'
-alias gd='git diff'
-alias gdc='git diff --cached'
-# [c]heck [o]ut
-alias co='git checkout'
-# [f]uzzy check[o]ut
-fo() {
-  git branch --no-color --sort=-committerdate --format='%(refname:short)' | fzf --header 'git checkout' | xargs git checkout
-}
-# [p]ull request check[o]ut
-po() {
-  gh pr list --author "@me" | fzf --header 'checkout PR' | awk '{print $(NF-5)}' | xargs git checkout
-}
-alias up='git push'
-alias upf='git push --force'
-alias pu='git pull'
-alias pur='git pull --rebase'
-alias fe='git fetch'
-alias re='git rebase'
-alias lr='git l -30'
-alias cdr='cd $(git rev-parse --show-toplevel)' # cd to git Root
-alias hs='git rev-parse --short HEAD'
-alias hm='git log --format=%B -n 1 HEAD'
-
-# ceedee dot dot dot
-alias -g ...='../..'
-alias -g ....='../../..'
-alias -g .....='../../../..'
-
-# Notes
-alias n='nvim +Notes' # Opens Vim and calls `:Notes`
-
-# Go
-alias got='go test ./...'
-
-alias -g withcolors="| sed '/PASS/s//$(printf "\033[32mPASS\033[0m")/' | sed '/FAIL/s//$(printf "\033[31mFAIL\033[0m")/'"
-
-alias zedn='/Applications/Zed\ Nightly.app/Contents/MacOS/cli'
-alias r='cargo run'
-alias rr='cargo run --release'
 
 ##########
 # FUNCTIONS
@@ -328,13 +266,23 @@ export PATH="$HOME/neovim/bin:$PATH"
 
 if type nvim &> /dev/null; then
   alias vim="nvim"
-  export EDITOR="nvim"
   export PSQL_EDITOR="nvim -c"set filetype=sql""
+else
+  export PSQL_EDITOR='vim -c"set filetype=sql"'
+fi
+
+if [[ "$OSTYPE" == darwin* ]] && type zed &> /dev/null; then
+  export EDITOR="zed --wait"
+  export VISUAL="zed --wait"
+  export GIT_EDITOR="zed --wait"
+elif type nvim &> /dev/null; then
+  export EDITOR="nvim"
+  export VISUAL="nvim"
   export GIT_EDITOR="nvim"
 else
-  export EDITOR='vim'
-  export PSQL_EDITOR='vim -c"set filetype=sql"'
-  export GIT_EDITOR='vim'
+  export EDITOR="vim"
+  export VISUAL="vim"
+  export GIT_EDITOR="vim"
 fi
 
 if [[ -e "$HOME/code/clones/lua-language-server/3rd/luamake/luamake" ]]; then

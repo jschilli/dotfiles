@@ -31,10 +31,12 @@ unsetopt flowcontrol
 
 portable_fragments=(
   "$ZSH/aliases.Linux.sh"
+  "$ZSH/aliases.shared.zsh"
   "$ZSH/completion.zsh"
   "$ZSH/git-aliases.zsh"
   "$ZSH/agents/agents.zsh"
   "$ZSH/claude/claude.zsh"
+  "$ZSH/dev/infisical.zsh"
   "$ZSH/node/aliases.zsh"
   "$ZSH/rust-aliases.zsh"
   "$ZSH/tmux/aliases.zsh"
