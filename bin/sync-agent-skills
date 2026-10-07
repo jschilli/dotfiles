@@ -41,7 +41,7 @@ jq -e '
 
 while IFS=$'\t' read -r repository encoded_skills; do
   IFS=$'\037' read -r -a skills <<< "$encoded_skills"
-  command=(npx --yes skills add "$repository" --global --agent cline claude-code --yes --skill "${skills[@]}")
+  command=(npx --yes skills@1.7.0 add "$repository" --global --agent cline claude-code --yes --skill "${skills[@]}")
 
   if [ "$mode" = "dry-run" ]; then
     printf 'Would run: '
