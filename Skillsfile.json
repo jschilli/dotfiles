@@ -79,6 +79,13 @@
     },
     {
       "bucket": "public",
+      "repository": "kitlangton/skills",
+      "skills": [
+        "effect"
+      ]
+    },
+    {
+      "bucket": "public",
       "repository": "mattpocock/skills",
       "skills": [
         "code-review",
